@@ -83,6 +83,25 @@ const Utils = {
     return `<span class="badge ${map[status] || 'badge-gray'}">${status}</span>`;
   },
 
+  laporanBadge(status) {
+    const map = {
+      'Plan':        'badge-blue',
+      'In Progress': 'badge-amber',
+      'Completed':   'badge-green',
+      'Cancelled':   'badge-red',
+    };
+    return `<span class="badge ${map[status] || 'badge-gray'}">${status || '-'}</span>`;
+  },
+
+  aapStatusBadge(status) {
+    if (status === 'Completed') {
+      return `<span class="badge badge-green">Completed</span>`;
+    } else if (status === 'New') {
+      return `<span class="badge badge-gray">New</span>`;
+    }
+    return `<span class="badge badge-amber">In Progress</span>`;
+  },
+
   severityBadge(sev) {
     const map = { 'High': 'badge-red', 'Medium': 'badge-amber', 'Low': 'badge-green' };
     return `<span class="badge ${map[sev] || 'badge-gray'}">${sev || '-'}</span>`;

@@ -142,8 +142,8 @@ const FDSPage = {
                     <div style="font-size:11px;line-height:1.3">
                       <a href="javascript:void(0)" data-action="view-linked-planning" data-planning-id="${pl.id}" style="font-weight:600;color:var(--blue-light);display:block">${Utils.escapeHtml(pl.reportNo)}</a>
                       <div style="margin-top:2px;display:flex;gap:4px;flex-wrap:wrap">
-                        ${CasesPage.laporanBadge(pl.status)}
-                        ${CasesPage.aapStatusBadge(aapStatus)}
+                        ${Utils.laporanBadge(pl.status)}
+                        ${Utils.aapStatusBadge(aapStatus)}
                       </div>
                     </div>
                   `;
@@ -216,7 +216,7 @@ const FDSPage = {
     Components.renderPagination('fds-pagination', FDSPage.page,
       Math.max(1, Math.ceil(filtered.length/FDSPage.perPage)),
       filtered.length,
-      `(p) => { FDSPage.page = p; FDSPage.refresh(); }`);
+      `FDSPage.page = page; FDSPage.refresh();`);
     if (window.lucide) lucide.createIcons();
   },
 
@@ -281,7 +281,6 @@ const FDSPage = {
           this.openEditModal(cid);
         },
         '[data-action="modal-close"]': () => Modal.close(),
-        '[data-action="save-case"]': (e, target) => this.saveCase(target.dataset.caseId),
       }
     });
     PageLifecycle.on('fds-search', 'input', (e) => this.setFilter('search', e.target.value));
@@ -290,10 +289,36 @@ const FDSPage = {
     PageLifecycle.delegate('page-content', {
       click: {
         '[data-action="dt-sort"]': (e, target) => this.setSort(target.dataset.key),
+        '#fds-add-btn': () => this.openAddModal(),
       }
     });
-    const addBtn = document.getElementById('fds-add-btn');
-    if (addBtn) addBtn.addEventListener('click', () => this.openAddModal());
+    if (!FDSPage._modalWired) {
+      FDSPage._modalWired = true;
+      PageLifecycle.delegate('modal-overlay', {
+        click: {
+          '[data-action="save-case"]': (e, target) => FDSPage.saveCase(target.dataset.caseId),
+        },
+        change: {
+          '#ff-brand': (e, target) => FDSPage._fillOutlets(),
+          '#ff-outlet': (e, target) => {
+            const code = target.value.split(' — ')[0].trim();
+            const outlet = DB.get('outlets').find(o => o.code === code);
+            const ni = document.getElementById('ff-outletname');
+            const pi = document.getElementById('ff-prov');
+            if (outlet) {
+              if (ni) ni.value = outlet.name || '';
+              if (pi) pi.value = outlet.province || '';
+            } else {
+              if (ni) ni.value = '';
+              if (pi) pi.value = '';
+            }
+          },
+        },
+        input: {
+          '#ff-fraud': (e, target) => Utils.formatNumberInput(target),
+        }
+      });
+    }
   },
 
   viewLinkedPlanning(planningId) {
@@ -395,6 +420,8 @@ const FDSPage = {
     const provinces = DB.get('provinces');
     const outlets = DB.get('outlets');
     const activeOutlets = c?.brand ? outlets.filter(o => o.brand === c.brand) : outlets;
+    const editOutlet = c?.outletCode ? outlets.find(o => o.code === c.outletCode) : null;
+    const outletDisplay = editOutlet ? `${editOutlet.code} — ${editOutlet.name}` : '';
 
     Modal.open(`
       <div class="modal-header">
@@ -419,17 +446,17 @@ const FDSPage = {
           </div>
           <div class="form-group">
             <label class="form-label required">Brand</label>
-            <select class="form-control" id="ff-brand" onchange="FDSPage._fillOutlets()">
+            <select class="form-control" id="ff-brand" data-action="fds-fill-outlets">
               <option value="">— Pilih Brand —</option>
               ${brands.map(b=>`<option value="${b.id}" ${c?.brand===b.id?'selected':''}>${b.name}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
             <label class="form-label required">Outlet</label>
-            <select class="form-control" id="ff-outlet">
-              <option value="">— Pilih Outlet —</option>
-              ${activeOutlets.map(o => `<option value="${o.code}|${o.name}|${o.province}" ${c?.outletCode===o.code?'selected':''}>${o.code} — ${o.name}</option>`).join('')}
-            </select>
+            <input type="text" class="form-control" id="ff-outlet" list="ff-outlet-datalist" autocomplete="off" placeholder="Ketik kode/nama outlet..." value="${Utils.escapeHtml(outletDisplay)}">
+            <datalist id="ff-outlet-datalist">
+              ${activeOutlets.map(o => `<option value="${o.code} — ${o.name}">`).join('')}
+            </datalist>
           </div>
           <div class="form-group">
             <label class="form-label required">Outlet Name</label>
@@ -447,7 +474,7 @@ const FDSPage = {
           </div>
           <div class="form-group">
             <label class="form-label">Estimated Fraud (IDR)</label>
-            <input type="text" class="form-control" id="ff-fraud" inputmode="numeric" value="${c?.estimatedFraud?Number(c.estimatedFraud).toLocaleString('en-US'):'0'}" oninput="Utils.formatNumberInput(this)" />
+            <input type="text" class="form-control" id="ff-fraud" inputmode="numeric" value="${c?.estimatedFraud?Number(c.estimatedFraud).toLocaleString('en-US'):'0'}" data-action="fds-format-fraud" />
           </div>
           <div class="form-group">
             <label class="form-label">Assigned To</label>
@@ -473,23 +500,16 @@ const FDSPage = {
         </button>
       </div>`, 'modal-lg');
     if (window.lucide) lucide.createIcons();
-    document.getElementById('ff-outlet')?.addEventListener('change', function() {
-      const parts = this.value.split('|');
-      const nameInput = document.getElementById('ff-outletname');
-      const provInput = document.getElementById('ff-prov');
-      if (nameInput) nameInput.value = parts[1] || '';
-      if (provInput) provInput.value = parts[2] || '';
-    });
   },
 
   _fillOutlets() {
     const brand   = document.getElementById('ff-brand')?.value;
     const outlets = DB.get('outlets').filter(o => !brand || o.brand === brand);
-    const sel     = document.getElementById('ff-outlet');
-    if (!sel) return;
-    sel.innerHTML = `<option value="">— Pilih Outlet —</option>` +
-      outlets.map(o => `<option value="${o.code}|${o.name}|${o.province}">${o.code} — ${o.name}</option>`).join('');
-    
+    const list    = document.getElementById('ff-outlet-datalist');
+    const input   = document.getElementById('ff-outlet');
+    if (!list) return;
+    list.innerHTML = outlets.map(o => `<option value="${o.code} — ${o.name}">`).join('');
+    if (input) input.value = '';
     const nameInput = document.getElementById('ff-outletname');
     const provInput = document.getElementById('ff-prov');
     if (nameInput) nameInput.value = '';
@@ -503,9 +523,8 @@ const FDSPage = {
 
   saveCase(id) {
     const outletVal = document.getElementById('ff-outlet')?.value || '';
-    const parts = outletVal.split('|');
-    const outletCode = parts[0] || '';
-    const outletName = parts[1] || '';
+    const outletCode = outletVal.split(' — ')[0].trim();
+    const outletName = outletVal.includes(' — ') ? outletVal.split(' — ').slice(1).join(' — ') : '';
 
     const data = {
       caseNo:        document.getElementById('ff-caseno').value,

@@ -22,7 +22,7 @@ const Router = {
   _pageNames: [
     'login', 'dashboard', 'dept-dashboard', 'reports', 'outlet-profile',
     'fraud-trend', 'wbs', 'fds', 'cases', 'closing-analysis', 'auditors',
-    'users', 'master'
+    'users', 'master', 'settings'
   ],
 
   _lazyLoadAll() {
@@ -47,6 +47,7 @@ const Router = {
     'auditors':    () => { AuditorsPage.render(); },
     'users':       () => { UsersPage.render(); },
     'master':      () => { MasterPage.render(); },
+    'settings':    () => { SettingsPage.render(); },
   },
 
   navigate(route, replace = false) {
@@ -59,6 +60,12 @@ const Router = {
   },
 
   async dispatch(route) {
+    if (route !== 'login' && !Perms.canRead(route)) {
+      Toast?.error('Anda tidak memiliki akses ke halaman ini.');
+      const fallback = Perms.canRead('dept-dashboard') ? 'dept-dashboard' : 'dashboard';
+      Router.navigate(fallback, true);
+      return;
+    }
     const handler = Router.routes[route];
     if (handler) {
       await Router._loadScript(route);
@@ -152,7 +159,7 @@ const Router = {
     const current = Router.getCurrentRoute();
     if (current === 'login' || current === '') {
       if (Auth.isLoggedIn()) {
-        const target = Auth.isDivision() ? 'dept-dashboard' : 'dashboard';
+        const target = Perms.canRead('dashboard') ? 'dashboard' : 'dept-dashboard';
         Router.navigate(target, true);
       } else {
         Router.dispatch('login');
@@ -160,8 +167,9 @@ const Router = {
     } else {
       if (!Auth.isLoggedIn() && current !== 'login') {
         Router.navigate('login', true);
-      } else if (Auth.isLoggedIn() && Auth.isDivision() && current === 'dashboard') {
-        Router.navigate('dept-dashboard', true);
+      } else if (Auth.isLoggedIn() && current !== 'login' && !Perms.canRead(current)) {
+        const fallback = Perms.canRead('dept-dashboard') ? 'dept-dashboard' : 'dashboard';
+        Router.navigate(fallback, true);
       } else {
         Router.dispatch(current);
       }

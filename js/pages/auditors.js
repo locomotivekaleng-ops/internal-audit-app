@@ -147,6 +147,18 @@ const AuditorsPage = {
     });
     PageLifecycle.on('auditors-search', 'input', (e) => this.setSearch(e.target.value));
     PageLifecycle.on('auditors-add-btn', 'click', () => this.openAddModal());
+    if (!AuditorsPage._modalWired) {
+      AuditorsPage._modalWired = true;
+      PageLifecycle.delegate('modal-overlay', {
+        click: {
+          '.modal-close-btn': () => Modal.close(),
+          '[data-action="edit-from-view"]': (e, target) => {
+            Modal.close();
+            this.openEditModal(target.dataset.id);
+          },
+        }
+      });
+    }
   },
 
   viewAuditor(id) {
@@ -164,7 +176,7 @@ const AuditorsPage = {
           <div class="auditor-avatar-large" style="margin:0 auto var(--space-3)">${Utils.getInitials(a.name)}</div>
           <div style="font-size:16px;font-weight:700;color:var(--text-primary)">${a.name}</div>
           <div style="font-size:12px;color:var(--text-muted)">${a.title}</div>
-          <div style="margin-top:var(--space-2)">${Utils.statusBadge(a.department)} ${Utils.statusBadge(a.status)}</div>
+          <div style="margin-top:var(--space-2)"><span class="badge badge-blue">${a.department}</span> ${Utils.statusBadge(a.status)}</div>
         </div>
         <div class="detail-grid">
           <div class="detail-item"><div class="detail-label">NIK</div><div class="detail-value">${a.nik}</div></div>
@@ -194,14 +206,6 @@ const AuditorsPage = {
         <button class="btn btn-secondary modal-close-btn">Close</button>
       </div>`, 'modal-lg');
     if (window.lucide) lucide.createIcons();
-    document.querySelector('.modal-close-btn')?.addEventListener('click', () => Modal.close());
-    const editBtn = document.querySelector('[data-action="edit-from-view"]');
-    if (editBtn) {
-      editBtn.addEventListener('click', () => {
-        Modal.close();
-        AuditorsPage.openEditModal(a.id);
-      });
-    }
   },
 
   openAddModal() { AuditorsPage._openModal(null); },

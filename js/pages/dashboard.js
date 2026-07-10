@@ -460,7 +460,7 @@ const DashboardPage = {
                       <td>${p.brand} — <span class="col-mono" style="font-size:11px">${p.outletCode}</span> ${p.outletName}</td>
                       <td><span class="badge badge-gray">${p.trigger}</span></td>
                       <td>${aud}</td>
-                      <td style="text-align:center">${CasesPage.laporanBadge(p.status)}</td>
+                      <td style="text-align:center">${Utils.laporanBadge(p.status)}</td>
                     </tr>
                   `;
                 }).join('')}
@@ -532,7 +532,7 @@ const DashboardPage = {
                         <td>${Utils.formatDate(p.planningDate)}</td>
                         <td>${p.brand} — ${p.outletName}</td>
                         <td>${aud}</td>
-                        <td>${CasesPage.laporanBadge(p.status)}</td>
+                        <td>${Utils.laporanBadge(p.status)}</td>
                       </tr>
                     `;
                   }).join('')}
@@ -752,42 +752,40 @@ const DashboardPage = {
   },
 
   _wireDrillDownModal() {
-    document.querySelectorAll('[data-action="nav-planning"]').forEach(el => {
-      el.addEventListener('click', () => {
-        Modal.close();
-        Router.navigate('cases');
-        setTimeout(() => CasesPage.viewPlanning(el.dataset.planningId), 100);
-      });
-    });
-    document.querySelectorAll('[data-action="nav-planning-actions"]').forEach(el => {
-      el.addEventListener('click', () => {
-        Modal.close();
-        Router.navigate('cases');
-        setTimeout(() => {
-          CasesPage.viewPlanning(el.dataset.planningId);
-          setTimeout(() => CasesPage._switchDetailTab('actions'), 100);
-        }, 100);
-      });
-    });
-    document.querySelectorAll('[data-action="nav-wbs"]').forEach(el => {
-      el.addEventListener('click', () => {
-        Modal.close();
-        Router.navigate('wbs');
-        setTimeout(() => WBSPage.viewCase(el.dataset.caseId), 100);
-      });
-    });
-    document.querySelectorAll('[data-action="nav-fds"]').forEach(el => {
-      el.addEventListener('click', () => {
-        Modal.close();
-        Router.navigate('fds');
-        setTimeout(() => FDSPage.viewCase(el.dataset.caseId), 100);
-      });
-    });
-    document.querySelectorAll('[data-action="ach-tab"]').forEach(el => {
-      el.addEventListener('click', () => DashboardPage._switchAchTab(el.dataset.tab));
-    });
-    document.querySelectorAll('[data-action="modal-close"]').forEach(el => {
-      el.addEventListener('click', () => Modal.close());
+    DashboardPage._wireDrillDownDelegates();
+  },
+
+  _wireDrillDownDelegates() {
+    if (DashboardPage._drillWired) return;
+    DashboardPage._drillWired = true;
+    PageLifecycle.delegate('modal-overlay', {
+      click: {
+        '[data-action="nav-planning"]': (e, target) => {
+          Modal.close();
+          Router.navigate('cases');
+          setTimeout(() => CasesPage?.viewPlanning?.(target.dataset.planningId), 100);
+        },
+        '[data-action="nav-planning-actions"]': (e, target) => {
+          Modal.close();
+          Router.navigate('cases');
+          setTimeout(() => {
+            CasesPage?.viewPlanning?.(target.dataset.planningId);
+            setTimeout(() => CasesPage?._switchDetailTab?.('actions'), 100);
+          }, 100);
+        },
+        '[data-action="nav-wbs"]': (e, target) => {
+          Modal.close();
+          Router.navigate('wbs');
+          setTimeout(() => WBSPage?.viewCase?.(target.dataset.caseId), 100);
+        },
+        '[data-action="nav-fds"]': (e, target) => {
+          Modal.close();
+          Router.navigate('fds');
+          setTimeout(() => FDSPage?.viewCase?.(target.dataset.caseId), 100);
+        },
+        '[data-action="ach-tab"]': (e, target) => DashboardPage._switchAchTab(target.dataset.tab),
+        '[data-action="modal-close"]': () => Modal.close(),
+      }
     });
   },
 

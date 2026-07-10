@@ -39,10 +39,10 @@ const UsersPage = {
 
       <!-- Role KPIs -->
       <div class="kpi-grid kpi-grid-4">
-        ${Components.kpiCard('Super Admin', roleCount.superadmin, 'Full system access', 'shield', 'red')}
-        ${Components.kpiCard('Head of Dept', roleCount.head, 'Internal Audit', 'shield-check', 'blue')}
-        ${Components.kpiCard('Auditor', roleCount.auditor, 'Internal Audit', 'user', 'green')}
-        ${Components.kpiCard('Divisi', roleCount.division, 'Non-Internal Audit', 'building', 'purple')}
+        ${Components.kpiCard('Superadmin', roleCount.superadmin, 'Full system access', 'shield', 'red')}
+        ${Components.kpiCard('Manager Audit', roleCount.head, 'Internal Audit', 'shield-check', 'blue')}
+        ${Components.kpiCard('Auditor', roleCount.auditor, 'Internal Audit', 'user', 'amber')}
+        ${Components.kpiCard('Auditee / Other Dept', roleCount.division, 'Non-Internal Audit', 'building', 'purple')}
       </div>
 
       <!-- Users Table -->
@@ -101,10 +101,10 @@ const UsersPage = {
 
   roleBadge(role) {
     const map = {
-      superadmin: ['badge-red',    'Super Admin'],
-      head:       ['badge-blue',   'Head of Dept'],
-      auditor:    ['badge-green',  'Auditor'],
-      division:   ['badge-purple', 'Divisi'],
+      superadmin: ['badge-red',    'Superadmin'],
+      head:       ['badge-blue',   'Manager Audit'],
+      auditor:    ['badge-amber',  'Auditor'],
+      division:   ['badge-purple', 'Auditee / Other Dept'],
     };
     const [cls, label] = map[role] || ['badge-gray', role];
     return `<span class="badge ${cls}">${label}</span>`;
@@ -161,10 +161,11 @@ const UsersPage = {
             <label class="form-label required">Role</label>
             <select class="form-control" id="uf-role">
               <option value="auditor"    ${u?.role==='auditor'?'selected':''}>Auditor</option>
-              <option value="head"       ${u?.role==='head'?'selected':''}>Head of Dept</option>
-              <option value="division"   ${u?.role==='division'?'selected':''}>Divisi (Non-Internal Audit)</option>
-              <option value="superadmin" ${u?.role==='superadmin'?'selected':''}>Super Admin</option>
+              <option value="head"       ${u?.role==='head'?'selected':''}>Manager Audit</option>
+              <option value="division"   ${u?.role==='division'?'selected':''}>Auditee / Other Dept</option>
+              <option value="superadmin" ${u?.role==='superadmin'?'selected':''}>Superadmin</option>
             </select>
+            <div id="uf-perm-summary" class="perm-summary" style="display:none"></div>
           </div>
           <div class="form-group" id="dept-group">
             <label class="form-label required" id="dept-label">Department</label>
@@ -191,6 +192,7 @@ const UsersPage = {
     if (window.lucide) lucide.createIcons();
     PageLifecycle.on('uf-role', 'change', () => UsersPage.onRoleChange());
     PageLifecycle.on('users-save-btn', 'click', () => UsersPage.saveUser(u?.id || ''));
+    UsersPage.onRoleChange();
   },
 
   onRoleChange() {
@@ -203,6 +205,53 @@ const UsersPage = {
     } else {
       deptGroup.style.display = '';
       deptLabel.textContent = role === 'division' ? 'Department (wajib untuk Divisi)' : 'Department';
+    }
+
+    const summary = document.getElementById('uf-perm-summary');
+    if (!summary) return;
+    const matrix = Perms.getMatrix();
+    const perms = matrix[role] || {};
+    const pages = [
+      { key: 'wbs', label: 'WBS' },
+      { key: 'fds', label: 'FDS' },
+      { key: 'cases', label: 'Audit Assignments' },
+      { key: 'dashboard', label: 'Dashboard' },
+      { key: 'dept-dashboard', label: 'Dept Dashboard' },
+      { key: 'fraud-trend', label: 'Fraud Trendline' },
+      { key: 'closing-analysis', label: 'AAP Closing' },
+      { key: 'outlet-profile', label: 'Outlet Profile' },
+      { key: 'reports', label: 'Reports' },
+      { key: 'auditors', label: 'Auditors' },
+      { key: 'users', label: 'User Mgt' },
+      { key: 'master', label: 'Master Data' },
+    ];
+    const icons = { none: '✕', read: '👁', full: '✏' };
+    const cls   = { none: 'none', read: 'read', full: 'full' };
+    const html = pages.map(p => {
+      const val = perms[p.key] || 'none';
+      return `<span class="perm-summary-item ${cls[val]}"><span class="perm-summary-icon">${icons[val]}</span> ${p.label}</span>`;
+    }).join('');
+    summary.innerHTML = `
+      <div class="perm-summary-title">
+        <i data-lucide="info" style="width:12px;height:12px"></i>
+        Akses untuk role ini:
+      </div>
+      <div class="perm-summary-grid">${html}</div>
+      <div class="perm-summary-footer">
+        <button class="btn btn-secondary btn-sm" data-action="goto-role-settings" data-role="${role}" style="font-size:10px">
+          <i data-lucide="external-link" style="width:11px;height:11px"></i>
+          Buka Role Settings
+        </button>
+      </div>`;
+    summary.style.display = '';
+    if (window.lucide) lucide.createIcons();
+
+    const gotoBtn = summary.querySelector('[data-action="goto-role-settings"]');
+    if (gotoBtn) {
+      gotoBtn.addEventListener('click', () => {
+        Modal.close();
+        Router.navigate('settings');
+      });
     }
   },
 

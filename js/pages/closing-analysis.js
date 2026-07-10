@@ -410,7 +410,7 @@ const ClosingAnalysisPage = {
         '[data-action="prev-page"]': () => this.changePage(this.page - 1),
         '[data-action="next-page"]': () => this.changePage(this.page + 1),
         '[data-action="view-planning"]': (e, target) => {
-          CasesPage.viewPlanning?.(target.dataset.planningId, target.dataset.tab);
+          CasesPage?.viewPlanning?.(target.dataset.planningId, target.dataset.tab);
         }
       }
     });

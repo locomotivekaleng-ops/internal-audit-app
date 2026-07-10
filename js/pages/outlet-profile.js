@@ -588,7 +588,7 @@ const OutletProfilePage = {
                   <td style="font-size:11px">${Utils.formatDate(p.planningDate)}</td>
                   <td style="font-size:11px">${Utils.formatDate(p.auditDateFrom)} — ${Utils.formatDate(p.auditDateTo)}</td>
                   <td><span class="badge ${p.trigger === 'WBS' ? 'badge-purple' : p.trigger === 'FDS' ? 'badge-cyan' : 'badge-gray'}">${p.trigger}</span></td>
-                  <td>${CasesPage.laporanBadge(p.status)}</td>
+                  <td>${Utils.laporanBadge(p.status)}</td>
                   <td>
                     <button class="btn btn-icon btn-secondary btn-sm" data-action="view-planning-from-outlet" data-planning-id="${p.id}" title="Lihat Detail">
                       <i data-lucide="eye"></i>

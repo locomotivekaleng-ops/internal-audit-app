@@ -43,13 +43,16 @@ const LoginPage = {
           <div class="demo-accounts">
             <p>Demo Accounts (click to fill)</p>
             <div class="demo-account-item" data-username="admin" data-password="admin123">
-              <span>admin</span><span class="role-tag">Super Admin</span>
+              <span>admin</span><span class="role-tag">Superadmin</span>
             </div>
-            <div class="demo-account-item" data-username="head.store" data-password="audit123">
-              <span>head.store</span><span class="role-tag">Head · Store Audit</span>
+            <div class="demo-account-item" data-username="manager" data-password="123">
+              <span>manager</span><span class="role-tag">Manager Audit</span>
             </div>
-            <div class="demo-account-item" data-username="andi.wijaya" data-password="audit123">
-              <span>andi.wijaya</span><span class="role-tag">Auditor · Store Audit</span>
+            <div class="demo-account-item" data-username="auditor" data-password="123">
+              <span>auditor</span><span class="role-tag">Auditor</span>
+            </div>
+            <div class="demo-account-item" data-username="divisi" data-password="123">
+              <span>divisi</span><span class="role-tag">Auditee</span>
             </div>
           </div>
 

@@ -9,58 +9,58 @@ beforeEach(() => {
   CasesPage.filters = { dateFrom: '', dateTo: '', department: '', brand: '', outlet: '', trigger: '', status: '', search: '' };
 });
 
-describe('CasesPage.laporanBadge', () => {
+describe('Utils.laporanBadge', () => {
   it('should return blue badge for Plan', () => {
-    const result = CasesPage.laporanBadge('Plan');
+    const result = Utils.laporanBadge('Plan');
     expect(result).toContain('badge-blue');
     expect(result).toContain('Plan');
   });
 
   it('should return amber badge for In Progress', () => {
-    const result = CasesPage.laporanBadge('In Progress');
+    const result = Utils.laporanBadge('In Progress');
     expect(result).toContain('badge-amber');
     expect(result).toContain('In Progress');
   });
 
   it('should return green badge for Completed', () => {
-    const result = CasesPage.laporanBadge('Completed');
+    const result = Utils.laporanBadge('Completed');
     expect(result).toContain('badge-green');
     expect(result).toContain('Completed');
   });
 
   it('should return red badge for Cancelled', () => {
-    const result = CasesPage.laporanBadge('Cancelled');
+    const result = Utils.laporanBadge('Cancelled');
     expect(result).toContain('badge-red');
     expect(result).toContain('Cancelled');
   });
 
   it('should return gray badge for unknown status', () => {
-    const result = CasesPage.laporanBadge('Unknown');
+    const result = Utils.laporanBadge('Unknown');
     expect(result).toContain('badge-gray');
   });
 });
 
-describe('CasesPage.aapStatusBadge', () => {
+describe('Utils.aapStatusBadge', () => {
   it('should return green badge for Completed', () => {
-    const result = CasesPage.aapStatusBadge('Completed');
+    const result = Utils.aapStatusBadge('Completed');
     expect(result).toContain('badge-green');
     expect(result).toContain('Completed');
   });
 
   it('should return gray badge for New', () => {
-    const result = CasesPage.aapStatusBadge('New');
+    const result = Utils.aapStatusBadge('New');
     expect(result).toContain('badge-gray');
     expect(result).toContain('New');
   });
 
   it('should return amber badge for In Progress', () => {
-    const result = CasesPage.aapStatusBadge('In Progress');
+    const result = Utils.aapStatusBadge('In Progress');
     expect(result).toContain('badge-amber');
     expect(result).toContain('In Progress');
   });
 
   it('should return amber badge for unknown status', () => {
-    const result = CasesPage.aapStatusBadge('Unknown');
+    const result = Utils.aapStatusBadge('Unknown');
     expect(result).toContain('badge-amber');
   });
 });

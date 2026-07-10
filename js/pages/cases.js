@@ -121,7 +121,7 @@ const CasesPage = {
           <button class="btn btn-secondary btn-sm" data-action="export-csv">
             <i data-lucide="download"></i> Export CSV
           </button>
-          ${Auth.isAuditor() || Auth.isHead() ? `<button class="btn btn-primary" data-action="open-planning"><i data-lucide="plus"></i> New Planning</button>` : ''}
+          ${Perms.can('cases:planning:write') ? `<button class="btn btn-primary" data-action="open-planning"><i data-lucide="plus"></i> New Planning</button>` : ''}
         </div>
       </div>
 
@@ -208,13 +208,13 @@ const CasesPage = {
                       ${openAct > 0 ? openAct + ' open' : pActions.length + ' done'}
                     </span>
                   </td>
-                  <td>${CasesPage.laporanBadge(p.status)}</td>
-                  <td>${CasesPage.aapStatusBadge(aapStatus)}</td>
+                  <td>${Utils.laporanBadge(p.status)}</td>
+                  <td>${Utils.aapStatusBadge(aapStatus)}</td>
                   <td>
                     <div class="flex gap-2">
                       <button class="btn btn-icon btn-secondary btn-sm" data-action="view-planning" data-id="${p.id}" data-tab="planning" title="Lihat Detail"><i data-lucide="eye"></i></button>
-                      ${Auth.isAuditor() || Auth.isHead() ? `<button class="btn btn-icon btn-secondary btn-sm" data-action="open-planning" data-id="${p.id}" title="Edit"><i data-lucide="pencil"></i></button>` : ''}
-                      ${Auth.isHead() ? `<button class="btn btn-icon btn-danger btn-sm" data-action="delete-planning" data-id="${p.id}" title="Hapus"><i data-lucide="trash-2"></i></button>` : ''}
+                      ${Perms.can('cases:planning:write') ? `<button class="btn btn-icon btn-secondary btn-sm" data-action="open-planning" data-id="${p.id}" title="Edit"><i data-lucide="pencil"></i></button>` : ''}
+                      ${Perms.can('cases:planning:write') ? `<button class="btn btn-icon btn-danger btn-sm" data-action="delete-planning" data-id="${p.id}" title="Hapus"><i data-lucide="trash-2"></i></button>` : ''}
                     </div>
                   </td>
                 </tr>`;
@@ -232,7 +232,7 @@ const CasesPage = {
     Components.renderPagination('cases-pagination', CasesPage.page,
       Math.max(1, Math.ceil(filtered.length / CasesPage.perPage)),
       filtered.length,
-      `(p) => { CasesPage.page = p; CasesPage.refresh(); }`);
+      `CasesPage.page = page; CasesPage.refresh();`);
     PageLifecycle.delegate('page-content', {
       click: {
         '[data-action="dt-sort"]': (e, target) => CasesPage.setSort(target.dataset.key),
@@ -249,11 +249,9 @@ const CasesPage = {
         '[data-action="delete-action"]': (e, target) => CasesPage.deleteAction(target.dataset.actionId, target.dataset.resultId, target.dataset.planningId),
         '[data-action="edit-planning-from-view"]': (e, target) => { Modal.close(); CasesPage.openPlanningModal(target.dataset.id); },
         '[data-action="confirm-kirim-laporan"]': (e, target) => CasesPage._confirmKirimLaporan(target.dataset.id),
-        '[data-action="save-planning"]': (e, target) => CasesPage.savePlanning(target.dataset.id),
-        '[data-action="save-result"]': (e, target) => CasesPage.saveResult(target.dataset.resultId, target.dataset.planningId),
-        '[data-action="save-action"]': (e, target) => CasesPage.saveAction(target.dataset.actionId, target.dataset.resultId, target.dataset.planningId),
         '[data-action="toggle-trigger-ref"]': () => CasesPage._toggleTriggerRef(),
         '[data-action="update-wbs-desc"]': () => CasesPage._updateWbsDesc(),
+        '[data-action="update-fds-desc"]': () => CasesPage._updateFdsDesc(),
         '[data-action="fill-outlets"]': () => CasesPage._fillOutlets(),
         '[data-action="toggle-recovery-field"]': () => CasesPage._toggleRecoveryField(),
       },
@@ -270,6 +268,32 @@ const CasesPage = {
     PageLifecycle.on('cases-brand', 'change', (e) => CasesPage.setFilter('brand', e.target.value));
     PageLifecycle.on('cases-outlet', 'change', (e) => CasesPage.setFilter('outlet', e.target.value));
     PageLifecycle.on('cases-status', 'change', (e) => CasesPage.setFilter('status', e.target.value));
+    if (!CasesPage._modalWired) {
+      CasesPage._modalWired = true;
+      PageLifecycle.delegate('modal-overlay', {
+        click: {
+          '[data-action="save-planning"]': (e, target) => CasesPage.savePlanning(target.dataset.id),
+          '[data-action="save-result"]': (e, target) => CasesPage.saveResult(target.dataset.resultId, target.dataset.planningId),
+          '[data-action="save-action"]': (e, target) => CasesPage.saveAction(target.dataset.actionId, target.dataset.resultId, target.dataset.planningId),
+        },
+        change: {
+          '#pf-outlet': (e, target) => {
+            const code = target.value.split(' — ')[0].trim();
+            const outlet = DB.get('outlets').find(o => o.code === code);
+            if (outlet) {
+              document.getElementById('pf-province').value = outlet.province || '';
+              document.getElementById('pf-outlet-manager').value = outlet.outletManager || '';
+              document.getElementById('pf-multi-unit-manager').value = outlet.multiUnitManager || '';
+              document.getElementById('pf-area-manager').value = outlet.areaManager || '';
+              document.getElementById('pf-distrik-manager').value = outlet.distrikManager || '';
+            }
+          },
+        },
+        input: {
+          '[data-action="cases-format-num"]': (e, target) => Utils.formatNumberInput(target),
+        }
+      });
+    }
     if (window.lucide) lucide.createIcons();
   },
 
@@ -307,27 +331,6 @@ const CasesPage = {
     Utils.updateElementHtmlAndPreserveFocus('page-content', CasesPage.buildHtml());
     CasesPage.afterRender();
     if (window.lucide) lucide.createIcons();
-  },
-
-  // Status Laporan badge: Plan / In Progress / Completed / Cancelled
-  laporanBadge(status) {
-    const map = {
-      'Plan':        'badge-blue',
-      'In Progress': 'badge-amber',
-      'Completed':   'badge-green',
-      'Cancelled':   'badge-red',
-    };
-    return `<span class="badge ${map[status] || 'badge-gray'}">${status || '-'}</span>`;
-  },
-
-  // Status Action Plan badge: New / In Progress / Completed
-  aapStatusBadge(status) {
-    if (status === 'Completed') {
-      return `<span class="badge badge-green">Completed</span>`;
-    } else if (status === 'New') {
-      return `<span class="badge badge-gray">New</span>`;
-    }
-    return `<span class="badge badge-amber">In Progress</span>`;
   },
 
   // ======================= DETAIL VIEW =======================
@@ -420,8 +423,8 @@ const CasesPage = {
             <div class="detail-item"><div class="detail-label">Tipe Audit</div><div class="detail-value">${Utils.statusBadge(p.auditType)}</div></div>
             <div class="detail-item"><div class="detail-label">Lead Auditor</div><div class="detail-value">${lead ? lead.name : '-'}</div></div>
             <div class="detail-item"><div class="detail-label">Tim Auditor</div><div class="detail-value">${team || '-'}</div></div>
-            <div class="detail-item"><div class="detail-label">Status Laporan</div><div class="detail-value">${CasesPage.laporanBadge(p.status)}</div></div>
-            <div class="detail-item"><div class="detail-label">Status Action Plan</div><div class="detail-value">${CasesPage.aapStatusBadge(aapStatus)}</div></div>
+            <div class="detail-item"><div class="detail-label">Status Laporan</div><div class="detail-value">${Utils.laporanBadge(p.status)}</div></div>
+            <div class="detail-item"><div class="detail-label">Status Action Plan</div><div class="detail-value">${Utils.aapStatusBadge(aapStatus)}</div></div>
             ${p.reportSentDate ? `<div class="detail-item"><div class="detail-label">Tgl Kirim ke Auditee</div><div class="detail-value" style="font-weight:600;color:#10b981">${Utils.formatDate(p.reportSentDate)}</div></div>` : ''}
           </div>
           <div class="form-group">
@@ -660,7 +663,7 @@ const CasesPage = {
         </div>
       </div>
       <div class="modal-footer">
-        ${Auth.isAuditor() || Auth.isHead() ? `<button class="btn btn-primary" data-action="edit-planning-from-view" data-id="${p.id}"><i data-lucide="pencil"></i> Edit Planning</button>` : ''}
+        ${Perms.can('cases:planning:write') ? `<button class="btn btn-primary" data-action="edit-planning-from-view" data-id="${p.id}"><i data-lucide="pencil"></i> Edit Planning</button>` : ''}
         <button class="btn btn-secondary" data-action="modal-close">Tutup</button>
       </div>`, 'modal-xl');
     if (window.lucide) lucide.createIcons();
@@ -745,6 +748,8 @@ const CasesPage = {
     const provinces = DB.get('provinces');
     const depts     = ['Store Audit', 'Corporate Audit', 'Business Process Improvement'];
     const outlets   = DB.get('outlets');
+    const editOutlet = p?.outletCode ? outlets.find(o => o.code === p.outletCode) : null;
+    const outletDisplay = editOutlet ? `${editOutlet.code} — ${editOutlet.name}` : '';
     const statuses  = ['Plan', 'In Progress', 'Completed', 'Cancelled'];
     const triggers  = ['WBS', 'FDS', 'Direct'];
     const wbsCases  = DB.get('wbs_cases');
@@ -787,7 +792,7 @@ const CasesPage = {
           </div>
           <div class="form-group" id="pf-fds-group" style="${(p?.trigger || 'Direct') !== 'FDS' ? 'display:none' : ''}">
             <label class="form-label">FDS Case Ref</label>
-            <select class="form-control" id="pf-fdsref" onchange="CasesPage._updateFdsDesc()">
+            <select class="form-control" id="pf-fdsref" data-action="update-fds-desc">
               <option value="">— Pilih FDS Case —</option>
               ${fdsCases.map(f => `<option value="${f.id}" ${p?.triggerRef === f.id ? 'selected' : ''}>${f.caseNo} — ${f.outletName}</option>`).join('')}
             </select>
@@ -813,10 +818,10 @@ const CasesPage = {
           </div>
           <div class="form-group">
             <label class="form-label required">Outlet</label>
-            <select class="form-control" id="pf-outlet">
-              <option value="">— Pilih Outlet —</option>
-              ${outlets.map(o => `<option value="${o.code}|${o.name}|${o.province}" ${p?.outletCode === o.code ? 'selected' : ''}>${o.code} — ${o.name}</option>`).join('')}
-            </select>
+            <input type="text" class="form-control" id="pf-outlet" list="pf-outlet-datalist" autocomplete="off" placeholder="Ketik kode/nama outlet..." value="${Utils.escapeHtml(outletDisplay)}">
+            <datalist id="pf-outlet-datalist">
+              ${outlets.map(o => `<option value="${o.code} — ${o.name}">`).join('')}
+            </datalist>
           </div>
           <div class="form-group">
             <label class="form-label">Provinsi</label>
@@ -870,18 +875,6 @@ const CasesPage = {
         </button>
       </div>`, 'modal-lg');
     if (window.lucide) lucide.createIcons();
-    document.getElementById('pf-outlet')?.addEventListener('change', function() {
-      const parts = this.value.split('|');
-      document.getElementById('pf-province').value = parts[2] || '';
-      const outletId = parts[0];
-      const outlet = outletId ? DB.find('outlets', outletId) : null;
-      if (outlet) {
-        document.getElementById('pf-outlet-manager').value = outlet.outletManager || '';
-        document.getElementById('pf-multi-unit-manager').value = outlet.multiUnitManager || '';
-        document.getElementById('pf-area-manager').value = outlet.areaManager || '';
-        document.getElementById('pf-distrik-manager').value = outlet.distrikManager || '';
-      }
-    });
     CasesPage._updateWbsDesc();
   },
 
@@ -912,25 +905,21 @@ const CasesPage = {
 
   _fillFromRef(brandId, outletCode, province) {
     const brandSel = document.getElementById('pf-brand');
-    const outletSel = document.getElementById('pf-outlet');
+    const outletInput = document.getElementById('pf-outlet');
     const provInput = document.getElementById('pf-province');
     if (brandSel) {
       brandSel.value = brandId || '';
       CasesPage._fillOutlets();
     }
-    if (outletSel && outletCode) {
-      const matchingOpt = Array.from(outletSel.options).find(o => o.value.startsWith(outletCode + '|'));
-      if (matchingOpt) {
-        outletSel.value = matchingOpt.value;
-        const parts = matchingOpt.value.split('|');
-        if (provInput) provInput.value = parts[2] || province || '';
-        const outlet = DB.find('outlets', outletCode);
-        if (outlet) {
-          document.getElementById('pf-outlet-manager').value = outlet.outletManager || '';
-          document.getElementById('pf-multi-unit-manager').value = outlet.multiUnitManager || '';
-          document.getElementById('pf-area-manager').value = outlet.areaManager || '';
-          document.getElementById('pf-distrik-manager').value = outlet.distrikManager || '';
-        }
+    if (outletInput && outletCode) {
+      const outlet = DB.get('outlets').find(o => o.code === outletCode);
+      if (outlet) {
+        outletInput.value = `${outlet.code} — ${outlet.name}`;
+        if (provInput) provInput.value = outlet.province || province || '';
+        document.getElementById('pf-outlet-manager').value = outlet.outletManager || '';
+        document.getElementById('pf-multi-unit-manager').value = outlet.multiUnitManager || '';
+        document.getElementById('pf-area-manager').value = outlet.areaManager || '';
+        document.getElementById('pf-distrik-manager').value = outlet.distrikManager || '';
       }
     } else if (provInput) {
       provInput.value = province || '';
@@ -961,13 +950,25 @@ const CasesPage = {
   _fillOutlets() {
     const brand   = document.getElementById('pf-brand')?.value;
     const outlets = DB.get('outlets').filter(o => !brand || o.brand === brand);
-    const sel     = document.getElementById('pf-outlet');
-    if (!sel) return;
-    sel.innerHTML = `<option value="">— Pilih Outlet —</option>` +
-      outlets.map(o => `<option value="${o.code}|${o.name}|${o.province}">${o.code} — ${o.name}</option>`).join('');
+    const list    = document.getElementById('pf-outlet-datalist');
+    const input   = document.getElementById('pf-outlet');
+    if (!list) return;
+    list.innerHTML = outlets.map(o => `<option value="${o.code} — ${o.name}">`).join('');
+    if (input && !input.dataset.skipClear) {
+      input.value = '';
+      document.getElementById('pf-province').value = '';
+      document.getElementById('pf-outlet-manager').value = '';
+      document.getElementById('pf-multi-unit-manager').value = '';
+      document.getElementById('pf-area-manager').value = '';
+      document.getElementById('pf-distrik-manager').value = '';
+    }
   },
 
   savePlanning(id) {
+    if (!Perms.can('cases:planning:write')) {
+      Toast.error('Anda tidak memiliki izin untuk membuat/mengubah Audit Planning.');
+      return;
+    }
     const reportNo    = document.getElementById('pf-reportno')?.value.trim();
     const planDate    = document.getElementById('pf-plandate')?.value;
     const status      = document.getElementById('pf-status')?.value;
@@ -985,9 +986,8 @@ const CasesPage = {
     if (!reportNo || !planDate || !brand || !outletVal || !leadAuditor) {
       Toast.error('Mohon lengkapi field yang wajib diisi (*).'); return;
     }
-    const parts = outletVal.split('|');
-    const outletCode = parts[0];
-    const outletName = parts[1];
+    const outletCode = outletVal.split(' — ')[0].trim();
+    const outletName = outletVal.includes(' — ') ? outletVal.split(' — ').slice(1).join(' — ') : '';
 
     let triggerRef = null;
     if (trigger === 'WBS') triggerRef = document.getElementById('pf-wbsref')?.value || null;
@@ -1108,7 +1108,7 @@ const CasesPage = {
           </div>
           <div class="form-group" id="rf-loss-group" style="${curNature==='Administrative'?'display:none':''}">  
             <label class="form-label required">Total Loss (Rp)</label>
-            <input type="text" class="form-control" id="rf-loss" inputmode="numeric" value="${curNature==='Administrative'?'0':(r?.totalLoss?Number(r.totalLoss).toLocaleString('en-US'):'0')}" oninput="Utils.formatNumberInput(this)" />
+            <input type="text" class="form-control" id="rf-loss" inputmode="numeric" value="${curNature==='Administrative'?'0':(r?.totalLoss?Number(r.totalLoss).toLocaleString('en-US'):'0')}" data-action="cases-format-num" />
           </div>
           <div id="rf-fraudster-section" style="grid-column:1/-1;border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:var(--space-3);background:rgba(239,68,68,0.03);${curNature==='Administrative'?'display:none':''}">
             <div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:var(--space-2);text-transform:uppercase;letter-spacing:0.5px"><i data-lucide="user-x" style="width:12px;height:12px;display:inline;margin-right:4px"></i> Informasi Fraudster</div>
@@ -1255,7 +1255,7 @@ const CasesPage = {
           ${!isAdmin ? `
           <div class="form-group" id="af-amount-group">
             <label class="form-label required">Target Amount (Rp)</label>
-            <input type="text" class="form-control" id="af-amount" inputmode="numeric" value="${a?.amount?Number(a.amount).toLocaleString('en-US'):'0'}" oninput="Utils.formatNumberInput(this)" placeholder="Total nilai yang ditargetkan untuk dipulihkan" />
+            <input type="text" class="form-control" id="af-amount" inputmode="numeric" value="${a?.amount?Number(a.amount).toLocaleString('en-US'):'0'}" data-action="cases-format-num" placeholder="Total nilai yang ditargetkan untuk dipulihkan" />
             <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Jumlah kerugian yang diharapkan dapat dipulihkan via AAP ini.</div>
           </div>` : `<input type="hidden" id="af-amount" value="0" />`}
           <div class="form-group">
@@ -1269,11 +1269,11 @@ const CasesPage = {
           ${!isAdmin ? `
           <div class="form-group" id="af-recovery-group" style="${!isClosed ? 'display:none' : ''}">
             <label class="form-label">Nilai Recovery (Rp)</label>
-            <input type="text" class="form-control" id="af-recovery" inputmode="numeric" value="${a?.recovery?Number(a.recovery).toLocaleString('en-US'):'0'}" oninput="Utils.formatNumberInput(this)" placeholder="Jumlah yang berhasil dikembalikan" />
+            <input type="text" class="form-control" id="af-recovery" inputmode="numeric" value="${a?.recovery?Number(a.recovery).toLocaleString('en-US'):'0'}" data-action="cases-format-num" placeholder="Jumlah yang berhasil dikembalikan" />
           </div>
           <div class="form-group" id="af-unrecovered-group" style="${!isClosed ? 'display:none' : ''}">
             <label class="form-label">Nilai Unrecovered (Rp)</label>
-            <input type="text" class="form-control" id="af-unrecovered" inputmode="numeric" value="${a?.unrecovered?Number(a.unrecovered).toLocaleString('en-US'):'0'}" oninput="Utils.formatNumberInput(this)" placeholder="Jumlah yang diputihkan/tidak bisa dikembalikan" />
+            <input type="text" class="form-control" id="af-unrecovered" inputmode="numeric" value="${a?.unrecovered?Number(a.unrecovered).toLocaleString('en-US'):'0'}" data-action="cases-format-num" placeholder="Jumlah yang diputihkan/tidak bisa dikembalikan" />
             <div style="font-size:10px;color:var(--text-muted);margin-top:3px">Jumlah yang resmi diikhlaskan oleh manajemen.</div>
           </div>` : `<input type="hidden" id="af-recovery" value="0" /><input type="hidden" id="af-unrecovered" value="0" />`}
         </div>

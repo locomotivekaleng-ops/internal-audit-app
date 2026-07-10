@@ -51,6 +51,24 @@ const MasterPage = {
         },
       }
     });
+    // Save buttons inside modals (modal-overlay is outside page-content)
+    PageLifecycle.delegate('modal-overlay', {
+      click: {
+        '[data-action="save-master"]': (e, target) => {
+          const entity = target.dataset.entity;
+          const id = target.dataset.editId || '';
+          if (entity === 'brand') this.saveBrand(id);
+          else if (entity === 'category') this.saveCat(id);
+          else if (entity === 'outlet') this.saveOutlet(id);
+          else if (entity === 'province') this.saveProvince(id);
+          else if (entity === 'department') this.saveDept(id);
+        },
+        '[data-action="master-process-import"]': () => this.processImport(),
+      },
+      change: {
+        '[data-action="master-file-select"]': (e) => this.handleFileSelect(e),
+      }
+    });
   },
 
   buildHtml() {
@@ -104,7 +122,7 @@ const MasterPage = {
           <div class="card-title"><i data-lucide="tag"></i> Brands</div>
           <div class="flex gap-2">
             <button class="btn btn-secondary btn-sm" data-action="master-import"><i data-lucide="upload"></i> Import CSV</button>
-            <button class="btn btn-primary btn-sm" data-action="master-add-brand"><i data-lucide="plus"></i> Add Brand</button>
+            <button class="btn btn-primary btn-sm" data-action="master-add" data-entity="brand"><i data-lucide="plus"></i> Add Brand</button>
           </div>
         </div>
         <div class="card-body" style="padding-top:0">
@@ -167,8 +185,6 @@ const MasterPage = {
         <button class="btn btn-primary" data-action="save-master" data-entity="brand" data-edit-id="${id||''}"><i data-lucide="save"></i> Save</button>
       </div>`, 'modal-sm');
     if (window.lucide) lucide.createIcons();
-    document.querySelector('[data-action="save-master"][data-entity="brand"]')?.addEventListener('click', () => MasterPage.saveBrand(id || ''));
-    document.querySelector('[data-action="modal-close"]')?.addEventListener('click', () => Modal.close());
   },
 
   saveBrand(id) {
@@ -279,8 +295,6 @@ const MasterPage = {
         <button class="btn btn-primary" data-action="save-master" data-entity="category" data-edit-id="${id||''}"><i data-lucide="save"></i> Save</button>
       </div>`, 'modal-sm');
     if (window.lucide) lucide.createIcons();
-    document.querySelector('[data-action="save-master"][data-entity="category"]')?.addEventListener('click', () => MasterPage.saveCat(id || ''));
-    document.querySelector('[data-action="modal-close"]')?.addEventListener('click', () => Modal.close());
   },
 
   saveCat(id) {
@@ -364,7 +378,7 @@ const MasterPage = {
         <div class="form-grid form-grid-2">
           <div class="form-group">
             <label class="form-label required">Outlet Code</label>
-            <input type="text" class="form-control" id="out-code" value="${Utils.escapeHtml(o?.code||'')}" placeholder="e.g. PHD-JKT001" />
+            <input type="text" class="form-control" id="ol-code" value="${Utils.escapeHtml(o?.code||'')}" placeholder="e.g. R241" />
           </div>
           <div class="form-group">
             <label class="form-label required">Outlet Name</label>
@@ -405,8 +419,6 @@ const MasterPage = {
         <button class="btn btn-primary" data-action="save-master" data-entity="outlet" data-edit-id="${id||''}"><i data-lucide="save"></i> Save</button>
       </div>`, 'modal-lg');
     if (window.lucide) lucide.createIcons();
-    document.querySelector('[data-action="save-master"][data-entity="outlet"]')?.addEventListener('click', () => MasterPage.saveOutlet(id || ''));
-    document.querySelector('[data-action="modal-close"]')?.addEventListener('click', () => Modal.close());
   },
 
   saveOutlet(id) {
@@ -490,8 +502,6 @@ const MasterPage = {
         <button class="btn btn-primary" data-action="save-master" data-entity="province" data-edit-id="${id||''}"><i data-lucide="save"></i> Save</button>
       </div>`, 'modal-sm');
     if (window.lucide) lucide.createIcons();
-    document.querySelector('[data-action="save-master"][data-entity="province"]')?.addEventListener('click', () => MasterPage.saveProvince(id || ''));
-    document.querySelector('[data-action="modal-close"]')?.addEventListener('click', () => Modal.close());
   },
 
   saveProvince(id) {
@@ -554,12 +564,12 @@ const MasterPage = {
       <div class="modal-body">
         <div class="form-grid form-grid-2">
           <div class="form-group">
-            <label class="form-label required">Category Name</label>
-            <input type="text" class="form-control" id="cat-name" value="${Utils.escapeHtml(c?.name||'')}" placeholder="e.g. Fraud" />
+            <label class="form-label required">Department Name</label>
+            <input type="text" class="form-control" id="dept-name" value="${Utils.escapeHtml(d?.name||'')}" placeholder="e.g. Operations" />
           </div>
-          <div class="form-group" style="grid-column:1/-1">
-            <label class="form-label">Description</label>
-            <textarea class="form-control" id="cat-desc" rows="3" placeholder="Optional description">${Utils.escapeHtml(c?.description||'')}</textarea>
+          <div class="form-group">
+            <label class="form-label required">Code</label>
+            <input type="text" class="form-control" id="dept-code" value="${Utils.escapeHtml(d?.code||'')}" placeholder="e.g. OPS" ${d ? 'readonly' : ''} />
           </div>
         </div>
       </div>
@@ -568,8 +578,6 @@ const MasterPage = {
         <button class="btn btn-primary" data-action="save-master" data-entity="department" data-edit-id="${id||''}"><i data-lucide="save"></i> Save</button>
       </div>`, 'modal-sm');
     if (window.lucide) lucide.createIcons();
-    document.querySelector('[data-action="save-master"][data-entity="department"]')?.addEventListener('click', () => MasterPage.saveDept(id || ''));
-    document.querySelector('[data-action="modal-close"]')?.addEventListener('click', () => Modal.close());
   },
 
   saveDept(id) {
@@ -600,7 +608,6 @@ const MasterPage = {
   setTab(tab) {
     MasterPage.activeTab = tab;
     document.getElementById('master-content').innerHTML = MasterPage.buildTabContent();
-    MasterPage.afterRender();
     if (window.lucide) lucide.createIcons();
     // Also re-render tabs to update active
     const tabEls = document.querySelectorAll('.dept-tab');
@@ -627,9 +634,9 @@ const MasterPage = {
       description = 'id (e.g. Hayo), name (Brand name), color (Hex code e.g. #10b981), description';
       sampleData = 'Hayo,Hayo Brand,#10b981,Hayo Brand description\nPHD,Pizza Hut Delivery,#3b82f6,Pizza Hut Delivery';
     } else if (tab === 'fraud_categories') {
-      templateHeader = 'name,color,description';
-      description = 'name (Category name), color (Hex code e.g. #ef4444), description';
-      sampleData = 'Loyalty Point,#3b82f6,Loyalty point fraud\nSales,#10b981,Sales manipulation';
+      templateHeader = 'name,color,description,nature';
+      description = 'name (Category name), color (Hex code e.g. #ef4444), description, nature (Fraud or Administrative)';
+      sampleData = 'Loyalty Point,#3b82f6,Loyalty point fraud,Fraud\nSales,#10b981,Sales manipulation,Fraud';
     } else if (tab === 'outlets') {
       templateHeader = 'code,name,brand,province,outletManager,multiUnitManager,areaManager,distrikManager';
       description = 'code (Outlet code e.g. R241), name (Outlet name), brand (e.g. PHR), province (e.g. Jawa Barat), outletManager, multiUnitManager, areaManager, distrikManager';
@@ -666,7 +673,7 @@ const MasterPage = {
           <i data-lucide="file-text" style="width:36px;height:36px;color:var(--text-muted);margin:0 auto var(--space-2)"></i>
           <p style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:2px">Drag & drop CSV file here</p>
           <p style="font-size:11px;color:var(--text-muted);margin-bottom:var(--space-2)">or click to browse</p>
-          <input type="file" id="csv-file-input" accept=".csv" style="position:absolute;inset:0;opacity:0;cursor:pointer" onchange="MasterPage.handleFileSelect(event)" />
+          <input type="file" id="csv-file-input" accept=".csv" style="position:absolute;inset:0;opacity:0;cursor:pointer" data-action="master-file-select" />
         </div>
         
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
@@ -799,6 +806,7 @@ const MasterPage = {
       const nameIdx = headers.indexOf('name');
       const colorIdx = headers.indexOf('color');
       const descIdx = headers.indexOf('description');
+      const natureIdx = headers.indexOf('nature');
       
       if (nameIdx === -1) {
         Toast.error('CSV columns must include "name"');
@@ -812,10 +820,11 @@ const MasterPage = {
         if (!name) { countErrors++; return; }
         const color = (colorIdx !== -1 && row[colorIdx]) ? row[colorIdx].trim() : '#3b82f6';
         const description = (descIdx !== -1 && row[descIdx]) ? row[descIdx].trim() : '';
+        const nature = (natureIdx !== -1 && row[natureIdx]) ? row[natureIdx].trim() : 'Fraud';
         
         const existIdx = cats.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
         const id = existIdx !== -1 ? cats[existIdx].id : 'cat_' + DB.genId();
-        const record = { id, name, color, description };
+        const record = { id, name, color, description, nature };
         if (existIdx !== -1) { cats[existIdx] = { ...cats[existIdx], ...record }; }
         else { cats.push(record); }
         countSuccess++;

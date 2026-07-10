@@ -136,8 +136,8 @@ const WBSPage = {
                     <div style="font-size:11px;line-height:1.3">
                       <a href="javascript:void(0)" data-action="view-linked-planning" data-planning-id="${pl.id}" style="font-weight:600;color:var(--blue-light);display:block">${Utils.escapeHtml(pl.reportNo)}</a>
                       <div style="margin-top:2px;display:flex;gap:4px;flex-wrap:wrap">
-                        ${CasesPage.laporanBadge(pl.status)}
-                        ${CasesPage.aapStatusBadge(aapStatus)}
+                        ${Utils.laporanBadge(pl.status)}
+                        ${Utils.aapStatusBadge(aapStatus)}
                       </div>
                     </div>`;
                 }
@@ -222,7 +222,7 @@ const WBSPage = {
     Components.renderPagination('wbs-pagination', WBSPage.page,
       Math.max(1, Math.ceil(filtered.length/WBSPage.perPage)),
       filtered.length,
-      `(p) => { WBSPage.page = p; WBSPage.refresh(); }`);
+      `WBSPage.page = page; WBSPage.refresh();`);
     if (window.lucide) lucide.createIcons();
   },
 
@@ -288,7 +288,6 @@ const WBSPage = {
           this.openEditModal(cid);
         },
         '[data-action="modal-close"]': () => Modal.close(),
-        '[data-action="save-case"]': (e, target) => this.saveCase(target.dataset.caseId),
       }
     });
     PageLifecycle.on('wbs-search', 'input', (e) => this.setFilter('search', e.target.value));
@@ -297,10 +296,36 @@ const WBSPage = {
     PageLifecycle.delegate('page-content', {
       click: {
         '[data-action="dt-sort"]': (e, target) => this.setSort(target.dataset.key),
+        '#wbs-add-btn': () => this.openAddModal(),
       }
     });
-    const addBtn = document.getElementById('wbs-add-btn');
-    if (addBtn) addBtn.addEventListener('click', () => this.openAddModal());
+    if (!WBSPage._modalWired) {
+      WBSPage._modalWired = true;
+      PageLifecycle.delegate('modal-overlay', {
+        click: {
+          '[data-action="save-case"]': (e, target) => WBSPage.saveCase(target.dataset.caseId),
+        },
+        change: {
+          '#wf-brand': (e, target) => WBSPage._fillOutlets(),
+          '#wf-outlet': (e, target) => {
+            const code = target.value.split(' — ')[0].trim();
+            const outlet = DB.get('outlets').find(o => o.code === code);
+            const ni = document.getElementById('wf-outletname');
+            const pi = document.getElementById('wf-prov');
+            if (outlet) {
+              if (ni) ni.value = outlet.name || '';
+              if (pi) pi.value = outlet.province || '';
+            } else {
+              if (ni) ni.value = '';
+              if (pi) pi.value = '';
+            }
+          },
+        },
+        input: {
+          '#wf-fraud': (e, target) => Utils.formatNumberInput(target),
+        }
+      });
+    }
   },
 
   viewLinkedPlanning(planningId) {
@@ -406,6 +431,8 @@ const WBSPage = {
     const provinces = DB.get('provinces');
     const outlets = DB.get('outlets');
     const activeOutlets = c?.brand ? outlets.filter(o => o.brand === c.brand) : outlets;
+    const editOutlet = c?.outletCode ? outlets.find(o => o.code === c.outletCode) : null;
+    const outletDisplay = editOutlet ? `${editOutlet.code} — ${editOutlet.name}` : '';
 
     Modal.open(`
       <div class="modal-header">
@@ -430,17 +457,17 @@ const WBSPage = {
           </div>
           <div class="form-group">
             <label class="form-label required">Brand</label>
-            <select class="form-control" id="wf-brand" onchange="WBSPage._fillOutlets()">
+            <select class="form-control" id="wf-brand" data-action="wbs-fill-outlets">
               <option value="">— Pilih Brand —</option>
               ${brands.map(b=>`<option value="${b.id}" ${c?.brand===b.id?'selected':''}>${b.name}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
             <label class="form-label required">Outlet</label>
-            <select class="form-control" id="wf-outlet">
-              <option value="">— Pilih Outlet —</option>
-              ${activeOutlets.map(o=>`<option value="${o.code}|${o.name}|${o.province}" ${c?.outletCode===o.code?'selected':''}>${o.code} — ${o.name}</option>`).join('')}
-            </select>
+            <input type="text" class="form-control" id="wf-outlet" list="wf-outlet-datalist" autocomplete="off" placeholder="Ketik kode/nama outlet..." value="${Utils.escapeHtml(outletDisplay)}">
+            <datalist id="wf-outlet-datalist">
+              ${activeOutlets.map(o => `<option value="${o.code} — ${o.name}">`).join('')}
+            </datalist>
           </div>
           <div class="form-group">
             <label class="form-label required">Outlet Name</label>
@@ -464,7 +491,7 @@ const WBSPage = {
           </div>
           <div class="form-group">
             <label class="form-label required">Estimated Fraud (IDR)</label>
-            <input type="text" class="form-control" id="wf-fraud" inputmode="numeric" value="${c?.estimatedFraud?Number(c.estimatedFraud).toLocaleString('en-US'):'0'}" oninput="Utils.formatNumberInput(this)" />
+            <input type="text" class="form-control" id="wf-fraud" inputmode="numeric" value="${c?.estimatedFraud?Number(c.estimatedFraud).toLocaleString('en-US'):'0'}" data-action="wbs-format-fraud" />
           </div>
           <div class="form-group">
             <label class="form-label">Assigned To</label>
@@ -494,23 +521,16 @@ const WBSPage = {
         </button>
       </div>`, 'modal-lg');
     if (window.lucide) lucide.createIcons();
-    document.getElementById('wf-outlet')?.addEventListener('change', function() {
-      const parts = this.value.split('|');
-      const nameInput = document.getElementById('wf-outletname');
-      const provInput = document.getElementById('wf-prov');
-      if (nameInput) nameInput.value = parts[1] || '';
-      if (provInput) provInput.value = parts[2] || '';
-    });
   },
 
   _fillOutlets() {
     const brand   = document.getElementById('wf-brand')?.value;
     const outlets = DB.get('outlets').filter(o => !brand || o.brand === brand);
-    const sel     = document.getElementById('wf-outlet');
-    if (!sel) return;
-    sel.innerHTML = `<option value="">— Pilih Outlet —</option>` +
-      outlets.map(o => `<option value="${o.code}|${o.name}|${o.province}">${o.code} — ${o.name}</option>`).join('');
-    
+    const list    = document.getElementById('wf-outlet-datalist');
+    const input   = document.getElementById('wf-outlet');
+    if (!list) return;
+    list.innerHTML = outlets.map(o => `<option value="${o.code} — ${o.name}">`).join('');
+    if (input) input.value = '';
     const nameInput = document.getElementById('wf-outletname');
     const provInput = document.getElementById('wf-prov');
     if (nameInput) nameInput.value = '';
@@ -524,9 +544,8 @@ const WBSPage = {
 
   saveCase(id) {
     const outletVal = document.getElementById('wf-outlet')?.value || '';
-    const parts = outletVal.split('|');
-    const outletCode = parts[0] || '';
-    const outletName = parts[1] || '';
+    const outletCode = outletVal.split(' — ')[0].trim();
+    const outletName = outletVal.includes(' — ') ? outletVal.split(' — ').slice(1).join(' — ') : '';
 
     const data = {
       caseNo:        document.getElementById('wf-caseno').value,

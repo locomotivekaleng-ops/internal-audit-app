@@ -84,6 +84,21 @@ function seedDatabase() {
       }));
       DB.set('audit_plannings', enrichedPlannings);
     }
+    // Migration: seed test users for manager/auditor/division roles
+    const existingUsers = DB.get('users') || [];
+    const testUsers = [
+      { id: 'usr_manager', username: 'manager', password: '123', name: 'Manager', email: 'manager@internalaudit.com', role: 'head', department: 'Store Audit', status: 'active', picDepartment: '', createdAt: '2025-01-01T00:00:00Z' },
+      { id: 'usr_auditor', username: 'auditor', password: '123', name: 'Auditor', email: 'auditor@internalaudit.com', role: 'auditor', department: 'Store Audit', status: 'active', picDepartment: '', createdAt: '2025-01-01T00:00:00Z' },
+      { id: 'usr_divisi', username: 'divisi', password: '123', name: 'Divisi', email: 'divisi@internalaudit.com', role: 'division', department: 'Operations', status: 'active', picDepartment: '', createdAt: '2025-01-01T00:00:00Z' },
+    ];
+    let changed = false;
+    testUsers.forEach(tu => {
+      if (!existingUsers.find(u => u.username === tu.username)) {
+        existingUsers.push(tu);
+        changed = true;
+      }
+    });
+    if (changed) DB.set('users', existingUsers);
     return;
   }
 
@@ -159,6 +174,9 @@ function seedDatabase() {
   // ---- Users ----
   const users = [
     { id: 'usr_superadmin', username: 'admin', password: 'admin123', name: 'Administrator', email: 'admin@internalaudit.com', role: 'superadmin', department: null, status: 'active', picDepartment: '', createdAt: '2025-01-01T00:00:00Z' },
+    { id: 'usr_manager', username: 'manager', password: '123', name: 'Manager', email: 'manager@internalaudit.com', role: 'head', department: 'Store Audit', status: 'active', picDepartment: '', createdAt: '2025-01-01T00:00:00Z' },
+    { id: 'usr_auditor', username: 'auditor', password: '123', name: 'Auditor', email: 'auditor@internalaudit.com', role: 'auditor', department: 'Store Audit', status: 'active', picDepartment: '', createdAt: '2025-01-01T00:00:00Z' },
+    { id: 'usr_divisi', username: 'divisi', password: '123', name: 'Divisi', email: 'divisi@internalaudit.com', role: 'division', department: 'Operations', status: 'active', picDepartment: '', createdAt: '2025-01-01T00:00:00Z' },
   ];
   DB.set('users', users);
 
@@ -373,6 +391,7 @@ function seedDatabase() {
   ];
   DB.set('audit_actions', auditActions);
 
+  Perms.save();
   DB.markInitialized();
   console.log('[Seed v10] Database initialized: departments + division users + AAP picDepartment mapped.');
 }

@@ -131,10 +131,11 @@ const DB = {
   },
 
   insert(table, record) {
+    if (!record.id) record.id = DB.genId();
     DB.validate(table, record);
     delete DB._indexes[table];
     const data = DB.get(table);
-    const id = record.id || DB.genId();
+    const id = record.id;
     const now = new Date().toISOString();
     const newRecord = { ...record, id, createdAt: record.createdAt || now, updatedAt: now };
     data.push(newRecord);

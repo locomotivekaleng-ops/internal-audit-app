@@ -6,28 +6,28 @@ const Components = {
 
   _sectionState: JSON.parse(localStorage.getItem('sidebar_sections') || '{}'),
 
+  _allNavItems: [
+    { route: 'dashboard',        icon: 'layout-dashboard', label: 'Executive Dashboard',   section: 'ANALYTICS' },
+    { route: 'dept-dashboard',   icon: 'building',          label: 'Dashboard Divisi',      section: null },
+    { route: 'outlet-profile',   icon: 'store',             label: 'Outlet Profile',        section: null },
+    { route: 'fraud-trend',      icon: 'trending-up',       label: 'Fraud Trendline',       section: null },
+    { route: 'closing-analysis', icon: 'clock',             label: 'AAP Closing Analysis',  section: null },
+    { route: 'wbs',              icon: 'megaphone',         label: 'WBS Overview',          section: 'CASE MANAGEMENT' },
+    { route: 'fds',              icon: 'scan-search',       label: 'FDS Overview',          section: null },
+    { route: 'cases',            icon: 'folder-open',       label: 'Audit Assignments',     section: null },
+    { route: 'reports',          icon: 'file-text',         label: 'Laporan',               section: 'LAPORAN' },
+    { route: 'auditors',         icon: 'users',             label: 'Auditors',              section: 'SETTINGS' },
+    { route: 'users',            icon: 'shield-check',      label: 'User Management',       section: null },
+    { route: 'master',           icon: 'database',          label: 'Master Data',           section: null },
+    { route: 'settings',         icon: 'shield',            label: 'Role Settings',         section: null },
+  ],
+
   // ---- App Shell ----
   renderAppShell(pageTitle, pageSubtitle, content, activeRoute) {
     const session = Auth.getSession();
     const initials = Utils.getInitials(session?.name || 'User');
 
-    const isDiv = Auth.isDivision();
-    const navItems = isDiv ? [
-      { route: 'dept-dashboard',   icon: 'layout-dashboard', label: 'Dashboard Departemen',  section: 'ANALYTICS' },
-    ] : [
-      { route: 'dashboard',        icon: 'layout-dashboard', label: 'Executive Dashboard',   section: 'ANALYTICS' },
-      { route: 'outlet-profile',   icon: 'store',             label: 'Outlet Profile',        section: null },
-      { route: 'fraud-trend',      icon: 'trending-up',       label: 'Fraud Trendline',       section: null },
-      { route: 'closing-analysis', icon: 'clock',             label: 'AAP Closing Analysis',  section: null },
-      { route: 'dept-dashboard',   icon: 'building',          label: 'Dashboard Divisi',      section: null },
-      { route: 'wbs',              icon: 'megaphone',         label: 'WBS Overview',          section: 'CASE MANAGEMENT' },
-      { route: 'fds',              icon: 'scan-search',       label: 'FDS Overview',          section: null },
-      { route: 'cases',            icon: 'folder-open',       label: 'Audit Assignments',     section: null },
-      { route: 'reports',          icon: 'file-text',         label: 'Laporan',               section: 'LAPORAN' },
-      { route: 'auditors',         icon: 'users',             label: 'Auditors',              section: 'SETTINGS' },
-      ...(Auth.isHead() ? [{ route: 'users', icon: 'shield-check', label: 'User Management', section: null }] : []),
-      ...(Auth.isHead() ? [{ route: 'master', icon: 'database', label: 'Master Data', section: null }] : []),
-    ];
+    const navItems = Components._allNavItems.filter(item => item.route === activeRoute || Perms.canRead(item.route));
 
     const navHtml = Components._buildNavHtml(navItems, activeRoute);
 
@@ -138,30 +138,14 @@ const Components = {
     const nav = document.querySelector('.sidebar-nav');
     if (nav) {
       const activeRoute = Router.getCurrentRoute();
-      const isDiv = Auth.isDivision();
-      const navItems = isDiv ? [
-        { route: 'dept-dashboard', icon: 'layout-dashboard', label: 'Dashboard Departemen', section: 'ANALYTICS' },
-      ] : [
-        { route: 'dashboard', icon: 'layout-dashboard', label: 'Executive Dashboard', section: 'ANALYTICS' },
-        { route: 'outlet-profile', icon: 'store', label: 'Outlet Profile', section: null },
-        { route: 'fraud-trend', icon: 'trending-up', label: 'Fraud Trendline', section: null },
-        { route: 'closing-analysis', icon: 'clock', label: 'AAP Closing Analysis', section: null },
-        { route: 'dept-dashboard', icon: 'building', label: 'Dashboard Divisi', section: null },
-        { route: 'wbs', icon: 'megaphone', label: 'WBS Overview', section: 'CASE MANAGEMENT' },
-        { route: 'fds', icon: 'scan-search', label: 'FDS Overview', section: null },
-        { route: 'cases', icon: 'folder-open', label: 'Audit Assignments', section: null },
-        { route: 'reports', icon: 'file-text', label: 'Laporan', section: 'LAPORAN' },
-        { route: 'auditors', icon: 'users', label: 'Auditors', section: 'SETTINGS' },
-        ...(Auth.isHead() ? [{ route: 'users', icon: 'shield-check', label: 'User Management', section: null }] : []),
-        ...(Auth.isHead() ? [{ route: 'master', icon: 'database', label: 'Master Data', section: null }] : []),
-      ];
+      const navItems = Components._allNavItems.filter(item => Perms.canRead(item.route));
       nav.innerHTML = Components._buildNavHtml(navItems, activeRoute);
       if (window.lucide) lucide.createIcons();
     }
   },
 
   roleLabel(role) {
-    const map = { superadmin: 'Super Admin', head: 'Head of Dept', auditor: 'Auditor', division: 'Divisi' };
+    const map = { superadmin: 'Superadmin', head: 'Manager Audit', auditor: 'Auditor', division: 'Auditee / Other Dept' };
     return map[role] || role;
   },
 
@@ -243,8 +227,7 @@ const Components = {
     let pages = '';
     for (let i = 1; i <= totalPages; i++) {
       if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
-        pages += `<button class="page-btn ${i === currentPage ? 'active' : ''}" 
-          onclick="(${onPageChange})(${i})">${i}</button>`;
+        pages += `<button class="page-btn ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
       } else if (i === currentPage - 2 || i === currentPage + 2) {
         pages += `<span style="color:var(--text-muted);padding:0 4px">…</span>`;
       }
@@ -252,14 +235,27 @@ const Components = {
     el.innerHTML = `
       <span>${start}–${end} of ${totalItems} records</span>
       <div class="pagination-controls">
-        <button class="page-btn" onclick="(${onPageChange})(${Math.max(1, currentPage-1)})" ${currentPage<=1?'disabled':''} aria-label="Previous page">
+        <button class="page-btn" data-page="${Math.max(1, currentPage-1)}" ${currentPage<=1?'disabled':''} aria-label="Previous page">
           <i data-lucide="chevron-left" style="width:12px;height:12px"></i>
         </button>
         ${pages}
-        <button class="page-btn" onclick="(${onPageChange})(${Math.min(totalPages, currentPage+1)})" ${currentPage>=totalPages?'disabled':''} aria-label="Next page">
+        <button class="page-btn" data-page="${Math.min(totalPages, currentPage+1)}" ${currentPage>=totalPages?'disabled':''} aria-label="Next page">
           <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
         </button>
       </div>`;
+    if (!el._pagWired) {
+      el._pagWired = true;
+      el.addEventListener('click', function(e) {
+        const btn = e.target.closest('[data-page]');
+        if (btn && !btn.disabled) {
+          const page = parseInt(btn.dataset.page);
+          if (!isNaN(page) && this._onPageChange) {
+            this._onPageChange(page);
+          }
+        }
+      });
+    }
+    el._onPageChange = new Function('page', onPageChange);
     if (window.lucide) lucide.createIcons();
   },
 
@@ -307,7 +303,7 @@ const DataTable = {
       let attrs = '';
       let label = col.label;
       if (col.class) attrs += ` class="${col.class}"`;
-      if (col.sortable !== false && sort && sort.key) {
+      if (col.sortable !== false && sort) {
         const isSorted = sort.key === col.key;
         const dir = isSorted ? sort.dir : null;
         const indicator = dir === 'asc' ? '\u25B2' : dir === 'desc' ? '\u25BC' : '\u21C5';

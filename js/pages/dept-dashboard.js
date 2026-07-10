@@ -178,7 +178,7 @@ const DeptDashboardPage = {
     PageLifecycle.delegate('page-content', {
       click: {
         '[data-action="view-planning"]': (e, target) => {
-          CasesPage.viewPlanning?.(target.dataset.planningId, target.dataset.tab);
+          CasesPage?.viewPlanning?.(target.dataset.planningId, target.dataset.tab);
         }
       }
     });
