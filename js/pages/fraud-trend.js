@@ -14,6 +14,7 @@ const FraudTrendPage = {
       FraudTrendPage.buildHtml(),
       'fraud-trend'
     );
+    FraudTrendPage._pageWired = false;
     FraudTrendPage.renderCharts();
     FraudTrendPage.afterRender();
   },
@@ -111,9 +112,9 @@ const FraudTrendPage = {
       <div class="card" style="padding:var(--space-4) var(--space-5)">
         <div class="filter-bar">
           <i data-lucide="filter" style="width:15px;height:15px;color:var(--text-muted)"></i>
-          <input type="date" class="form-control" value="${f.dateFrom}" data-filter="dateFrom" />
+          <input type="date" class="form-control" id="ft-date-from" value="${f.dateFrom}" data-filter="dateFrom" />
           <span style="color:var(--text-muted);font-size:12px">to</span>
-          <input type="date" class="form-control" value="${f.dateTo}" data-filter="dateTo" />
+          <input type="date" class="form-control" id="ft-date-to" value="${f.dateTo}" data-filter="dateTo" />
           <select class="form-control" data-filter="department">
             <option value="">All Departments</option>
             ${depts.map(d=>`<option value="${d}" ${f.department===d?'selected':''}>${d}</option>`).join('')}
@@ -196,13 +197,18 @@ const FraudTrendPage = {
   },
 
   afterRender() {
-    PageLifecycle.delegate('page-content', {
-      change: {
-        '[data-filter]': (e, target) => {
-          this.setFilter(target.dataset.filter, target.value);
+    if (!FraudTrendPage._pageWired) {
+      FraudTrendPage._pageWired = true;
+      PageLifecycle.delegate('page-content', {
+        change: {
+          '[data-filter="department"]': (e, target) => {
+            this.setFilter('department', target.value);
+          }
         }
-      }
-    });
+      });
+    }
+    PageLifecycle.on('ft-date-from', 'change', (e) => this.setFilter('dateFrom', e.target.value));
+    PageLifecycle.on('ft-date-to', 'change', (e) => this.setFilter('dateTo', e.target.value));
   },
 
   setFilter(key, val) {

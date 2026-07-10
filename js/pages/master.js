@@ -14,61 +14,67 @@ const MasterPage = {
       MasterPage.buildHtml(),
       'master'
     );
+    MasterPage._pageWired = false;
     MasterPage.afterRender();
   },
 
   afterRender() {
-    PageLifecycle.delegate('page-content', {
-      click: {
-        '[data-action="master-tab"]': (e, target) => this.setTab(target.dataset.tab),
-        '[data-action="master-import"]': () => this.openImportModal(),
-        '[data-action="master-add"][data-entity="brand"]': () => this.openBrandModal(null),
-        '[data-action="master-add"][data-entity="category"]': () => this.openCatModal(null),
-        '[data-action="master-add"][data-entity="outlet"]': () => this.openOutletModal(null),
-        '[data-action="master-add"][data-entity="province"]': () => this.openProvinceModal(null),
-        '[data-action="master-add"][data-entity="department"]': () => this.openDeptModal(null),
-        '[data-action="master-edit"]': (e, target) => {
-          const entity = target.dataset.entity;
-          const id = target.dataset.entityId;
-          if (entity === 'brand') this.openBrandModal(id);
-          else if (entity === 'category') this.openCatModal(id);
-          else if (entity === 'outlet') this.openOutletModal(id);
-          else if (entity === 'province') this.openProvinceModal(id);
-          else if (entity === 'department') this.openDeptModal(id);
+    if (!MasterPage._pageWired) {
+      MasterPage._pageWired = true;
+      PageLifecycle.delegate('page-content', {
+        click: {
+          '[data-action="master-tab"]': (e, target) => this.setTab(target.dataset.tab),
+          '[data-action="master-import"]': () => this.openImportModal(),
+          '[data-action="master-add"][data-entity="brand"]': () => this.openBrandModal(null),
+          '[data-action="master-add"][data-entity="category"]': () => this.openCatModal(null),
+          '[data-action="master-add"][data-entity="outlet"]': () => this.openOutletModal(null),
+          '[data-action="master-add"][data-entity="province"]': () => this.openProvinceModal(null),
+          '[data-action="master-add"][data-entity="department"]': () => this.openDeptModal(null),
+          '[data-action="master-edit"]': (e, target) => {
+            const entity = target.dataset.entity;
+            const id = target.dataset.entityId;
+            if (entity === 'brand') this.openBrandModal(id);
+            else if (entity === 'category') this.openCatModal(id);
+            else if (entity === 'outlet') this.openOutletModal(id);
+            else if (entity === 'province') this.openProvinceModal(id);
+            else if (entity === 'department') this.openDeptModal(id);
+          },
+          '[data-action="master-delete"]': (e, target) => {
+            const entity = target.dataset.entity;
+            const id = target.dataset.entityId;
+            if (entity === 'brand') this.deleteBrand(id);
+            else if (entity === 'category') this.deleteCat(id);
+            else if (entity === 'outlet') this.deleteOutlet(id);
+            else if (entity === 'province') this.deleteProvince(id);
+            else if (entity === 'department') this.deleteDept(id);
+          },
+          '[data-action="master-outlet-profile"]': (e, target) => {
+            OutletProfilePage.selectedOutletCode = target.dataset.outletCode;
+            Router.navigate('outlet-profile');
+          },
+        }
+      });
+    }
+    if (!MasterPage._modalWired) {
+      MasterPage._modalWired = true;
+      PageLifecycle.delegate('modal-overlay', {
+        click: {
+          '[data-action="save-master"]': (e, target) => {
+            const entity = target.dataset.entity;
+            const id = target.dataset.editId || '';
+            if (entity === 'brand') this.saveBrand(id);
+            else if (entity === 'category') this.saveCat(id);
+            else if (entity === 'outlet') this.saveOutlet(id);
+            else if (entity === 'province') this.saveProvince(id);
+            else if (entity === 'department') this.saveDept(id);
+          },
+          '[data-action="master-process-import"]': () => this.processImport(),
         },
-        '[data-action="master-delete"]': (e, target) => {
-          const entity = target.dataset.entity;
-          const id = target.dataset.entityId;
-          if (entity === 'brand') this.deleteBrand(id);
-          else if (entity === 'category') this.deleteCat(id);
-          else if (entity === 'outlet') this.deleteOutlet(id);
-          else if (entity === 'province') this.deleteProvince(id);
-          else if (entity === 'department') this.deleteDept(id);
-        },
-        '[data-action="master-outlet-profile"]': (e, target) => {
-          OutletProfilePage.selectedOutletCode = target.dataset.outletCode;
-          Router.navigate('outlet-profile');
-        },
-      }
-    });
-    // Save buttons inside modals (modal-overlay is outside page-content)
-    PageLifecycle.delegate('modal-overlay', {
-      click: {
-        '[data-action="save-master"]': (e, target) => {
-          const entity = target.dataset.entity;
-          const id = target.dataset.editId || '';
-          if (entity === 'brand') this.saveBrand(id);
-          else if (entity === 'category') this.saveCat(id);
-          else if (entity === 'outlet') this.saveOutlet(id);
-          else if (entity === 'province') this.saveProvince(id);
-          else if (entity === 'department') this.saveDept(id);
-        },
-        '[data-action="master-process-import"]': () => this.processImport(),
-      },
-      change: {
-        '[data-action="master-file-select"]': (e) => this.handleFileSelect(e),
-      }
-    });
+        change: {
+          '[data-action="master-file-select"]': (e) => this.handleFileSelect(e),
+        }
+      });
+    }
   },
 
   buildHtml() {

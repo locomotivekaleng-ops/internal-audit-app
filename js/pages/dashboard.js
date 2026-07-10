@@ -23,6 +23,7 @@ const DashboardPage = {
       DashboardPage.buildHtml(),
       'dashboard'
     );
+    DashboardPage._pageWired = false;
     DashboardPage.afterRender();
     DashboardPage.renderCharts();
   },
@@ -350,12 +351,15 @@ const DashboardPage = {
   },
 
   afterRender() {
-    PageLifecycle.delegate('page-content', {
-      click: {
-        '[data-action="drill-down"]': (e, target) => this.drillDown(target.dataset.metric),
-        '#dash-reset-btn': () => this.resetFilters(),
-      }
-    });
+    if (!DashboardPage._pageWired) {
+      DashboardPage._pageWired = true;
+      PageLifecycle.delegate('page-content', {
+        click: {
+          '[data-action="drill-down"]': (e, target) => this.drillDown(target.dataset.metric),
+          '#dash-reset-btn': () => this.resetFilters(),
+        }
+      });
+    }
     PageLifecycle.on('f-date-from', 'change', (e) => this.setFilter('dateFrom', e.target.value));
     PageLifecycle.on('f-date-to', 'change', (e) => this.setFilter('dateTo', e.target.value));
     PageLifecycle.on('f-dept', 'change', (e) => this.setFilter('department', e.target.value));

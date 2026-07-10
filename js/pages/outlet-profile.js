@@ -21,33 +21,44 @@ const OutletProfilePage = {
       OutletProfilePage.buildHtml(),
       'outlet-profile'
     );
+    OutletProfilePage._pageWired = false;
     OutletProfilePage.afterRender();
   },
 
   afterRender() {
-    PageLifecycle.delegate('page-content', {
-      click: {
-        '[data-action="op-tab"]': (e, target) => this.setTab(target.dataset.tab),
-        '[data-action="op-export"]': () => this.exportCsv(),
-        '[data-action="op-manager-history"]': (e, target) => {
-          this.showManagerHistory(target.dataset.outletCode, target.dataset.role, target.dataset.managerName);
-        },
-        '[data-action="op-view-planning"]': (e, target) => this._viewPlanning(target.dataset.planningId),
-        '[data-action="op-go-to-outlet"]': (e, target) => this._goToOutlet(target.dataset.outletCode),
-        '[data-action="export-drill-down"]': (e, target) => {
-          this._exportDrillDown(target.dataset.role, target.dataset.name);
-        },
-        '[data-action="view-planning-from-outlet"]': (e, target) => {
-          Modal.close();
-          Router.navigate('cases');
-          setTimeout(() => CasesPage.viewPlanning(target.dataset.planningId, 'planning'), 150);
-        },
-      }
-    });
+    if (!OutletProfilePage._pageWired) {
+      OutletProfilePage._pageWired = true;
+      PageLifecycle.delegate('page-content', {
+        click: {
+          '[data-action="op-tab"]': (e, target) => this.setTab(target.dataset.tab),
+          '[data-action="op-export"]': () => this.exportCsv(),
+          '[data-action="op-manager-history"]': (e, target) => {
+            this.showManagerHistory(target.dataset.outletCode, target.dataset.role, target.dataset.managerName);
+          },
+          '[data-action="op-view-planning"]': (e, target) => this._viewPlanning(target.dataset.planningId),
+          '#combobox-clear-btn': () => this._clearOutlet(),
+        }
+      });
+    }
     PageLifecycle.on('profile-outlet-search', 'input', (e) => this._onSearchInput(e.target.value));
     PageLifecycle.on('profile-outlet-search', 'focus', () => this._onSearchFocus());
     PageLifecycle.on('profile-outlet-search', 'blur', () => this._onSearchBlur());
-    PageLifecycle.on('combobox-clear-btn', 'click', () => this._clearOutlet());
+    if (!OutletProfilePage._modalWired) {
+      OutletProfilePage._modalWired = true;
+      PageLifecycle.delegate('modal-overlay', {
+        click: {
+          '[data-action="op-go-to-outlet"]': (e, target) => this._goToOutlet(target.dataset.outletCode),
+          '[data-action="export-drill-down"]': (e, target) => {
+            this._exportDrillDown(target.dataset.role, target.dataset.name);
+          },
+          '[data-action="view-planning-from-outlet"]': (e, target) => {
+            Modal.close();
+            Router.navigate('cases');
+            setTimeout(() => CasesPage.viewPlanning(target.dataset.planningId, 'planning'), 150);
+          },
+        }
+      });
+    }
   },
 
   buildHtml() {

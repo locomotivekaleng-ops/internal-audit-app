@@ -54,6 +54,7 @@ const SettingsPage = {
       SettingsPage.buildHtml(),
       'settings'
     );
+    SettingsPage._pageWired = false;
     SettingsPage.afterRender();
   },
 
@@ -161,23 +162,26 @@ const SettingsPage = {
   },
 
   afterRender() {
-    document.querySelectorAll('.perm-btn-group').forEach(group => {
-      group.addEventListener('click', (e) => {
-        const label = e.target.closest('.perm-btn');
-        if (!label) return;
-        const radio = label.querySelector('input[type="radio"]');
-        if (!radio) return;
-        radio.checked = true;
-        group.querySelectorAll('.perm-btn').forEach(l => l.classList.remove('selected'));
-        label.classList.add('selected');
+    if (!SettingsPage._pageWired) {
+      SettingsPage._pageWired = true;
+      document.querySelectorAll('.perm-btn-group').forEach(group => {
+        group.addEventListener('click', (e) => {
+          const label = e.target.closest('.perm-btn');
+          if (!label) return;
+          const radio = label.querySelector('input[type="radio"]');
+          if (!radio) return;
+          radio.checked = true;
+          group.querySelectorAll('.perm-btn').forEach(l => l.classList.remove('selected'));
+          label.classList.add('selected');
+        });
       });
-    });
 
-    document.querySelector('[data-action="settings-save"]')
-      ?.addEventListener('click', () => SettingsPage._save());
+      document.querySelector('[data-action="settings-save"]')
+        ?.addEventListener('click', () => SettingsPage._save());
 
-    document.querySelector('[data-action="settings-reset"]')
-      ?.addEventListener('click', () => SettingsPage._reset());
+      document.querySelector('[data-action="settings-reset"]')
+        ?.addEventListener('click', () => SettingsPage._reset());
+    }
   },
 
   _collectMatrix() {

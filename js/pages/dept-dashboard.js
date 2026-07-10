@@ -36,6 +36,7 @@ const DeptDashboardPage = {
       DeptDashboardPage.buildHtml(dept, isDiv),
       'dept-dashboard'
     );
+    DeptDashboardPage._pageWired = false;
     DeptDashboardPage.afterRender();
   },
 
@@ -173,15 +174,18 @@ const DeptDashboardPage = {
   },
 
   afterRender() {
+    if (!DeptDashboardPage._pageWired) {
+      DeptDashboardPage._pageWired = true;
+      PageLifecycle.delegate('page-content', {
+        click: {
+          '[data-action="view-planning"]': (e, target) => {
+            CasesPage?.viewPlanning?.(target.dataset.planningId, target.dataset.tab);
+          }
+        }
+      });
+    }
     PageLifecycle.on('dept-dashboard-select', 'change', (e) => this.changeDept(e.target.value));
     PageLifecycle.on('dept-search', 'input', () => this.filterTable());
-    PageLifecycle.delegate('page-content', {
-      click: {
-        '[data-action="view-planning"]': (e, target) => {
-          CasesPage?.viewPlanning?.(target.dataset.planningId, target.dataset.tab);
-        }
-      }
-    });
   },
 
   filterTable() {

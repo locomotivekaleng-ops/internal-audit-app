@@ -623,34 +623,38 @@ const ReportsPage = {
       ReportsPage._buildHtml(),
       'reports'
     );
+    ReportsPage._pageWired = false;
     ReportsPage.afterRender();
   },
 
   afterRender() {
-    PageLifecycle.delegate('page-content', {
-      change: {
-        '[data-filter="brand"]': (e, target) => this._setFilter('brand', target.value),
-        '[data-filter="department"]': (e, target) => this._setFilter('department', target.value),
-        '[data-filter="auditor"]': (e, target) => this._setFilter('auditor', target.value),
-        '[data-filter="trigger"]': (e, target) => this._setFilter('trigger', target.value),
-      },
-      click: {
-        '[data-action="rp-toggle-cat"]': (e, target) => this._toggleCategory(target.dataset.catId),
-        '[data-action="rp-set-report"]': (e, target) => this._setReport(target.dataset.reportId),
-        '[data-action="rp-reset-filters"]': () => this._resetFilters(),
-        '[data-action="rp-apply-filters"]': () => this.render(),
-        '[data-action="rp-toggle-column-selector"]': () => this._toggleColumnSelector(),
-        '[data-action="rp-toggle-preview-full"]': () => this._togglePreviewFull(),
-        '[data-action="rp-download"]': () => this._downloadCurrent(),
-        '[data-action="rp-print"]': () => this._printReport(),
-        '[data-action="rp-clear-filter"]': (e, target) => this._clearFilter(target.dataset.filterKey),
-        '[data-action="rp-reset-columns"]': () => this._resetColumns(),
-        '[data-action="rp-done-columns"]': () => this._toggleColumnSelector(),
-        '[data-action="rp-go-to-page"]': (e, target) => this._goToPage(Number(target.dataset.page)),
-        '[data-action="rp-stop-propagation"]': (e) => e.stopPropagation(),
-        '[data-action="rp-toggle-column"]': (e, target) => this._toggleColumn(target.dataset.columnKey),
-      }
-    });
+    if (!ReportsPage._pageWired) {
+      ReportsPage._pageWired = true;
+      PageLifecycle.delegate('page-content', {
+        change: {
+          '[data-filter="brand"]': (e, target) => this._setFilter('brand', target.value),
+          '[data-filter="department"]': (e, target) => this._setFilter('department', target.value),
+          '[data-filter="auditor"]': (e, target) => this._setFilter('auditor', target.value),
+          '[data-filter="trigger"]': (e, target) => this._setFilter('trigger', target.value),
+        },
+        click: {
+          '[data-action="rp-toggle-cat"]': (e, target) => this._toggleCategory(target.dataset.catId),
+          '[data-action="rp-set-report"]': (e, target) => this._setReport(target.dataset.reportId),
+          '[data-action="rp-reset-filters"]': () => this._resetFilters(),
+          '[data-action="rp-apply-filters"]': () => this.render(),
+          '[data-action="rp-toggle-column-selector"]': () => this._toggleColumnSelector(),
+          '[data-action="rp-toggle-preview-full"]': () => this._togglePreviewFull(),
+          '[data-action="rp-download"]': () => this._downloadCurrent(),
+          '[data-action="rp-print"]': () => this._printReport(),
+          '[data-action="rp-clear-filter"]': (e, target) => this._clearFilter(target.dataset.filterKey),
+          '[data-action="rp-reset-columns"]': () => this._resetColumns(),
+          '[data-action="rp-done-columns"]': () => this._toggleColumnSelector(),
+          '[data-action="rp-go-to-page"]': (e, target) => this._goToPage(Number(target.dataset.page)),
+          '[data-action="rp-stop-propagation"]': (e) => e.stopPropagation(),
+          '[data-action="rp-toggle-column"]': (e, target) => this._toggleColumn(target.dataset.columnKey),
+        }
+      });
+    }
     PageLifecycle.on('rp-search', 'input', (e) => this._setFilter('search', e.target.value));
     PageLifecycle.on('rp-date-from', 'change', (e) => this._setFilter('dateFrom', e.target.value));
     PageLifecycle.on('rp-date-to', 'change', (e) => this._setFilter('dateTo', e.target.value));

@@ -14,6 +14,7 @@ const AuditorsPage = {
       AuditorsPage.buildHtml(),
       'auditors'
     );
+    AuditorsPage._pageWired = false;
     AuditorsPage.afterRender();
   },
 
@@ -137,16 +138,19 @@ const AuditorsPage = {
   },
 
   afterRender() {
-    PageLifecycle.delegate('page-content', {
-      click: {
-        '[data-action="edit-auditor"]': (e, target) => { this.openEditModal(target.dataset.id); },
-        '[data-action="delete-auditor"]': (e, target) => { this.deleteAuditor(target.dataset.id); },
-        '[data-action="view-auditor"]': (e, target) => { this.viewAuditor(target.dataset.id); },
-        '[data-dept]': (e, target) => { this.setDept(target.dataset.dept); },
-      }
-    });
+    if (!AuditorsPage._pageWired) {
+      AuditorsPage._pageWired = true;
+      PageLifecycle.delegate('page-content', {
+        click: {
+          '[data-action="edit-auditor"]': (e, target) => { this.openEditModal(target.dataset.id); },
+          '[data-action="delete-auditor"]': (e, target) => { this.deleteAuditor(target.dataset.id); },
+          '[data-action="view-auditor"]': (e, target) => { this.viewAuditor(target.dataset.id); },
+          '[data-dept]': (e, target) => { this.setDept(target.dataset.dept); },
+          '#auditors-add-btn': () => this.openAddModal(),
+        }
+      });
+    }
     PageLifecycle.on('auditors-search', 'input', (e) => this.setSearch(e.target.value));
-    PageLifecycle.on('auditors-add-btn', 'click', () => this.openAddModal());
     if (!AuditorsPage._modalWired) {
       AuditorsPage._modalWired = true;
       PageLifecycle.delegate('modal-overlay', {

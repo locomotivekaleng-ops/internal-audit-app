@@ -23,6 +23,7 @@ const ClosingAnalysisPage = {
       ClosingAnalysisPage.buildHtml(),
       'closing-analysis'
     );
+    ClosingAnalysisPage._pageWired = false;
     ClosingAnalysisPage.afterRender();
     ClosingAnalysisPage.renderCharts();
   },
@@ -398,28 +399,27 @@ const ClosingAnalysisPage = {
   },
 
   afterRender() {
+    if (!ClosingAnalysisPage._pageWired) {
+      ClosingAnalysisPage._pageWired = true;
+      PageLifecycle.delegate('page-content', {
+        change: {
+          '[data-filter="trigger"]': (e, target) => this.setFilter('trigger', target.value),
+          '[data-filter="auditor"]': (e, target) => this.setFilter('auditor', target.value),
+        },
+        click: {
+          '#ca-reset-btn': () => this.resetFilters(),
+          '[data-action="prev-page"]': () => this.changePage(this.page - 1),
+          '[data-action="next-page"]': () => this.changePage(this.page + 1),
+          '[data-action="view-planning"]': (e, target) => {
+            CasesPage?.viewPlanning?.(target.dataset.planningId, target.dataset.tab);
+          },
+          '[data-action="dt-sort"]': (e, target) => this.setSort(target.dataset.key),
+        }
+      });
+    }
     PageLifecycle.on('ca-date-from', 'change', (e) => this.setFilter('dateFrom', e.target.value));
     PageLifecycle.on('ca-date-to', 'change', (e) => this.setFilter('dateTo', e.target.value));
-    PageLifecycle.delegate('page-content', {
-      change: {
-        '[data-filter="trigger"]': (e, target) => this.setFilter('trigger', target.value),
-        '[data-filter="auditor"]': (e, target) => this.setFilter('auditor', target.value),
-      },
-      click: {
-        '#ca-reset-btn': () => this.resetFilters(),
-        '[data-action="prev-page"]': () => this.changePage(this.page - 1),
-        '[data-action="next-page"]': () => this.changePage(this.page + 1),
-        '[data-action="view-planning"]': (e, target) => {
-          CasesPage?.viewPlanning?.(target.dataset.planningId, target.dataset.tab);
-        }
-      }
-    });
     PageLifecycle.on('closing-analysis-search', 'input', (e) => this.setFilter('search', e.target.value));
-    PageLifecycle.delegate('page-content', {
-      click: {
-        '[data-action="dt-sort"]': (e, target) => this.setSort(target.dataset.key),
-      }
-    });
   },
 
   setFilter(key, val) {

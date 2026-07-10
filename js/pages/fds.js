@@ -15,6 +15,7 @@ const FDSPage = {
       FDSPage.buildHtml(),
       'fds'
     );
+    FDSPage._pageWired = false;
     FDSPage.afterRender();
     FDSPage.renderCharts();
   },
@@ -253,50 +254,49 @@ const FDSPage = {
   },
 
   afterRender() {
-    PageLifecycle.delegate('page-content', {
-      change: {
-        '[data-filter="brand"]': (e, target) => this.setFilter('brand', target.value),
-        '[data-filter="outlet"]': (e, target) => this.setFilter('outlet', target.value),
-        '[data-filter="status"]': (e, target) => this.setFilter('status', target.value),
-      },
-      click: {
-        '[data-action="view-linked-planning"]': (e, target) => this.viewLinkedPlanning(target.dataset.planningId),
-        '[data-action="view-case"]': (e, target) => this.viewCase(target.dataset.caseId),
-        '[data-action="edit-case"]': (e, target) => this.openEditModal(target.dataset.caseId),
-        '[data-action="delete-case"]': (e, target) => this.deleteCase(target.dataset.caseId),
-        '[data-action="view-linked-planning-detail"]': (e, target) => {
-          const pid = target.dataset.planningId;
-          Modal.close();
-          Router.navigate('cases');
-          setTimeout(() => CasesPage.viewPlanning(pid, 'planning'), 150);
+    if (!FDSPage._pageWired) {
+      FDSPage._pageWired = true;
+      PageLifecycle.delegate('page-content', {
+        change: {
+          '[data-filter="brand"]': (e, target) => this.setFilter('brand', target.value),
+          '[data-filter="outlet"]': (e, target) => this.setFilter('outlet', target.value),
+          '[data-filter="status"]': (e, target) => this.setFilter('status', target.value),
         },
-        '[data-action="create-planning-from-fds"]': (e, target) => {
-          const cid = target.dataset.caseId;
-          Modal.close();
-          this._createPlanningFromFds(cid);
-        },
-        '[data-action="edit-fds-from-view"]': (e, target) => {
-          const cid = target.dataset.caseId;
-          Modal.close();
-          this.openEditModal(cid);
-        },
-        '[data-action="modal-close"]': () => Modal.close(),
-      }
-    });
+        click: {
+          '[data-action="view-linked-planning"]': (e, target) => this.viewLinkedPlanning(target.dataset.planningId),
+          '[data-action="view-case"]': (e, target) => this.viewCase(target.dataset.caseId),
+          '[data-action="edit-case"]': (e, target) => this.openEditModal(target.dataset.caseId),
+          '[data-action="delete-case"]': (e, target) => this.deleteCase(target.dataset.caseId),
+          '[data-action="dt-sort"]': (e, target) => this.setSort(target.dataset.key),
+          '#fds-add-btn': () => this.openAddModal(),
+        }
+      });
+    }
     PageLifecycle.on('fds-search', 'input', (e) => this.setFilter('search', e.target.value));
     PageLifecycle.on('fds-date-from', 'change', (e) => this.setFilter('dateFrom', e.target.value));
     PageLifecycle.on('fds-date-to', 'change', (e) => this.setFilter('dateTo', e.target.value));
-    PageLifecycle.delegate('page-content', {
-      click: {
-        '[data-action="dt-sort"]': (e, target) => this.setSort(target.dataset.key),
-        '#fds-add-btn': () => this.openAddModal(),
-      }
-    });
     if (!FDSPage._modalWired) {
       FDSPage._modalWired = true;
       PageLifecycle.delegate('modal-overlay', {
         click: {
           '[data-action="save-case"]': (e, target) => FDSPage.saveCase(target.dataset.caseId),
+          '[data-action="view-linked-planning-detail"]': (e, target) => {
+            const pid = target.dataset.planningId;
+            Modal.close();
+            Router.navigate('cases');
+            setTimeout(() => CasesPage.viewPlanning(pid, 'planning'), 150);
+          },
+          '[data-action="create-planning-from-fds"]': (e, target) => {
+            const cid = target.dataset.caseId;
+            Modal.close();
+            FDSPage._createPlanningFromFds(cid);
+          },
+          '[data-action="edit-fds-from-view"]': (e, target) => {
+            const cid = target.dataset.caseId;
+            Modal.close();
+            FDSPage.openEditModal(cid);
+          },
+          '[data-action="modal-close"]': () => Modal.close(),
         },
         change: {
           '#ff-brand': (e, target) => FDSPage._fillOutlets(),

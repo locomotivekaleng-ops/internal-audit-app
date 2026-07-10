@@ -69,6 +69,7 @@ const CasesPage = {
       CasesPage.buildHtml(),
       'cases'
     );
+    CasesPage._pageWired = false;
     CasesPage.afterRender();
   },
 
@@ -233,33 +234,19 @@ const CasesPage = {
       Math.max(1, Math.ceil(filtered.length / CasesPage.perPage)),
       filtered.length,
       `CasesPage.page = page; CasesPage.refresh();`);
-    PageLifecycle.delegate('page-content', {
-      click: {
-        '[data-action="dt-sort"]': (e, target) => CasesPage.setSort(target.dataset.key),
-        '[data-action="export-csv"]': () => CasesPage.exportCsv(),
-        '[data-action="open-planning"]': (e, target) => CasesPage.openPlanningModal(target.dataset.id || null),
-        '[data-action="reset-filters"]': () => CasesPage.resetFilters(),
-        '[data-action="view-planning"]': (e, target) => CasesPage.viewPlanning(target.dataset.id, target.dataset.tab),
-        '[data-action="delete-planning"]': (e, target) => CasesPage.deletePlanning(target.dataset.id),
-        '[data-action="kirim-laporan"]': (e, target) => CasesPage.kirimLaporan(target.dataset.id),
-        '[data-action="switch-detail-tab"]': (e, target) => CasesPage._switchDetailTab(target.dataset.tab),
-        '[data-action="open-result-modal"]': (e, target) => CasesPage.openResultModal(target.dataset.resultId || null, target.dataset.planningId),
-        '[data-action="delete-result"]': (e, target) => CasesPage.deleteResult(target.dataset.resultId, target.dataset.planningId),
-        '[data-action="open-action-modal"]': (e, target) => CasesPage.openActionModal(target.dataset.actionId || null, target.dataset.resultId, target.dataset.planningId),
-        '[data-action="delete-action"]': (e, target) => CasesPage.deleteAction(target.dataset.actionId, target.dataset.resultId, target.dataset.planningId),
-        '[data-action="edit-planning-from-view"]': (e, target) => { Modal.close(); CasesPage.openPlanningModal(target.dataset.id); },
-        '[data-action="confirm-kirim-laporan"]': (e, target) => CasesPage._confirmKirimLaporan(target.dataset.id),
-        '[data-action="toggle-trigger-ref"]': () => CasesPage._toggleTriggerRef(),
-        '[data-action="update-wbs-desc"]': () => CasesPage._updateWbsDesc(),
-        '[data-action="update-fds-desc"]': () => CasesPage._updateFdsDesc(),
-        '[data-action="fill-outlets"]': () => CasesPage._fillOutlets(),
-        '[data-action="toggle-recovery-field"]': () => CasesPage._toggleRecoveryField(),
-      },
-      change: {
-        '[data-action="nature-change"]': (e, target) => CasesPage._onNatureChange(target.dataset.planningId, target.dataset.resultId),
-      }
-    });
-    // Bind filter inputs by ID
+    if (!CasesPage._pageWired) {
+      CasesPage._pageWired = true;
+      PageLifecycle.delegate('page-content', {
+        click: {
+          '[data-action="dt-sort"]': (e, target) => CasesPage.setSort(target.dataset.key),
+          '[data-action="export-csv"]': () => CasesPage.exportCsv(),
+          '[data-action="open-planning"]': (e, target) => CasesPage.openPlanningModal(target.dataset.id || null),
+          '[data-action="reset-filters"]': () => CasesPage.resetFilters(),
+          '[data-action="view-planning"]': (e, target) => CasesPage.viewPlanning(target.dataset.id, target.dataset.tab),
+          '[data-action="delete-planning"]': (e, target) => CasesPage.deletePlanning(target.dataset.id),
+        },
+      });
+    }
     PageLifecycle.on('cases-search', 'input', (e) => CasesPage.setFilter('search', e.target.value));
     PageLifecycle.on('cases-date-from', 'change', (e) => CasesPage.setFilter('dateFrom', e.target.value));
     PageLifecycle.on('cases-date-to', 'change', (e) => CasesPage.setFilter('dateTo', e.target.value));
@@ -275,8 +262,22 @@ const CasesPage = {
           '[data-action="save-planning"]': (e, target) => CasesPage.savePlanning(target.dataset.id),
           '[data-action="save-result"]': (e, target) => CasesPage.saveResult(target.dataset.resultId, target.dataset.planningId),
           '[data-action="save-action"]': (e, target) => CasesPage.saveAction(target.dataset.actionId, target.dataset.resultId, target.dataset.planningId),
+          '[data-action="kirim-laporan"]': (e, target) => CasesPage.kirimLaporan(target.dataset.id),
+          '[data-action="switch-detail-tab"]': (e, target) => CasesPage._switchDetailTab(target.dataset.tab),
+          '[data-action="open-result-modal"]': (e, target) => CasesPage.openResultModal(target.dataset.resultId || null, target.dataset.planningId),
+          '[data-action="delete-result"]': (e, target) => CasesPage.deleteResult(target.dataset.resultId, target.dataset.planningId),
+          '[data-action="open-action-modal"]': (e, target) => CasesPage.openActionModal(target.dataset.actionId || null, target.dataset.resultId, target.dataset.planningId),
+          '[data-action="delete-action"]': (e, target) => CasesPage.deleteAction(target.dataset.actionId, target.dataset.resultId, target.dataset.planningId),
+          '[data-action="edit-planning-from-view"]': (e, target) => { Modal.close(); CasesPage.openPlanningModal(target.dataset.id); },
+          '[data-action="confirm-kirim-laporan"]': (e, target) => CasesPage._confirmKirimLaporan(target.dataset.id),
+          '[data-action="toggle-trigger-ref"]': () => CasesPage._toggleTriggerRef(),
+          '[data-action="update-wbs-desc"]': () => CasesPage._updateWbsDesc(),
+          '[data-action="update-fds-desc"]': () => CasesPage._updateFdsDesc(),
+          '[data-action="fill-outlets"]': () => CasesPage._fillOutlets(),
+          '[data-action="toggle-recovery-field"]': () => CasesPage._toggleRecoveryField(),
         },
         change: {
+          '[data-action="nature-change"]': (e, target) => CasesPage._onNatureChange(target.dataset.planningId, target.dataset.resultId),
           '#pf-outlet': (e, target) => {
             const code = target.value.split(' — ')[0].trim();
             const outlet = DB.get('outlets').find(o => o.code === code);

@@ -12,6 +12,7 @@ const UsersPage = {
       UsersPage.buildHtml(),
       'users'
     );
+    UsersPage._pageWired = false;
     UsersPage.afterRender();
   },
 
@@ -117,14 +118,17 @@ const UsersPage = {
   },
 
   afterRender() {
-    PageLifecycle.delegate('page-content', {
-      click: {
-        '[data-action="edit-user"]': (e, target) => { this.openEditModal(target.dataset.id); },
-        '[data-action="reset-user"]': (e, target) => { this.openResetModal(target.dataset.id); },
-        '[data-action="delete-user"]': (e, target) => { this.deleteUser(target.dataset.id); },
-      }
-    });
-    PageLifecycle.on('users-add-btn', 'click', () => this.openAddModal());
+    if (!UsersPage._pageWired) {
+      UsersPage._pageWired = true;
+      PageLifecycle.delegate('page-content', {
+        click: {
+          '[data-action="edit-user"]': (e, target) => { this.openEditModal(target.dataset.id); },
+          '[data-action="reset-user"]': (e, target) => { this.openResetModal(target.dataset.id); },
+          '[data-action="delete-user"]': (e, target) => { this.deleteUser(target.dataset.id); },
+          '#users-add-btn': () => this.openAddModal(),
+        }
+      });
+    }
   },
 
   openAddModal() { UsersPage._openModal(null); },
