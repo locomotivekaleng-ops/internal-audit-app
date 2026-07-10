@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
+await import('../../js/utils.js');
 await import('../../js/pages/closing-analysis.js');
 
 describe('ClosingAnalysisPage.getClosingDays', () => {

@@ -55,7 +55,7 @@ const DeptDashboardPage = {
     const totalAll = actions.length;
     const overdue = openActions.filter(a => {
       if (!a.dueDate) return false;
-      return new Date(a.dueDate) < new Date();
+      const dd = Utils.parseLocalDate(a.dueDate); return dd && dd < new Date();
     }).length;
 
     return `
@@ -104,7 +104,7 @@ const DeptDashboardPage = {
                   </tr></thead>
                   <tbody>
                     ${DeptDashboardPage._sortByDueDate(openActions).map(a => {
-                      const isOverdue = a.dueDate && new Date(a.dueDate) < new Date();
+                      const overdueDate = Utils.parseLocalDate(a.dueDate); const isOverdue = overdueDate && overdueDate < new Date();
                       const amount = Number(a.amount) || 0;
                       const outstanding = amount - (Number(a.recovery) || 0) - (Number(a.unrecovered) || 0);
                       return `<tr>
@@ -201,7 +201,7 @@ const DeptDashboardPage = {
     return [...actions].sort((a, b) => {
       if (!a.dueDate) return 1;
       if (!b.dueDate) return -1;
-      return new Date(a.dueDate) - new Date(b.dueDate);
+      return (Utils.parseLocalDate(a.dueDate) || 0) - (Utils.parseLocalDate(b.dueDate) || 0);
     });
   },
 
@@ -209,7 +209,7 @@ const DeptDashboardPage = {
     return [...actions].sort((a, b) => {
       if (!a.completionDate) return 1;
       if (!b.completionDate) return -1;
-      return new Date(b.completionDate) - new Date(a.completionDate);
+      return (Utils.parseLocalDate(b.completionDate) || 0) - (Utils.parseLocalDate(a.completionDate) || 0);
     });
   }
 };

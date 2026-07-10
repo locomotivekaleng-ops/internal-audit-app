@@ -31,7 +31,7 @@ const ClosingAnalysisPage = {
   getClosingDays(action) {
     if (!action.createdAt || !action.completionDate) return 0;
     const start = new Date(action.createdAt);
-    const end = new Date(action.completionDate);
+    const end = Utils.parseLocalDate(action.completionDate);
     const diff = end - start;
     const days = Math.round(diff / (1000 * 60 * 60 * 24));
     return days > 0 ? days : 0;

@@ -384,13 +384,13 @@ const ReportsPage = {
           { label:'Total Kasus', value:f.length, color:'red' },
           { label:'Kategori', value:catSet.size, color:'blue' },
           { label:'Total Loss', value:Utils.formatIDR(totalLoss), color:'purple' },
-          { label:'Periode', value:new Set(f.map(r=>{const d2=new Date(r.findingDate); return `${d2.getFullYear()}-${d2.getMonth()+1}`})).size+' bln', color:'cyan' },
+          { label:'Periode', value:new Set(f.map(r=>{const d2=Utils.parseLocalDate(r.findingDate); return d2?`${d2.getFullYear()}-${d2.getMonth()+1}`:''})).size+' bln', color:'cyan' },
         ];
       },
       fetchRows(d, self) {
         const groups = {};
         d.fraudResults.forEach(r => {
-          const d2 = new Date(r.findingDate);
+          const d2 = Utils.parseLocalDate(r.findingDate);
           const key = `${d2.getFullYear()}|${d2.getMonth()+1}|${r.category}`;
           if (!groups[key]) groups[key] = { year: d2.getFullYear(), month: d2.getMonth()+1, category: r.category||'-', count: 0, loss: 0 };
           groups[key].count++;
@@ -1184,8 +1184,8 @@ const ReportsPage = {
     const data = ReportsPage._filteredData();
     const groups = {};
     data.fraudResults.forEach(r => {
-      const d = new Date(r.findingDate);
-      const key = `${d.getFullYear()}|${d.getMonth()+1}|${r.category}`;
+      const d = Utils.parseLocalDate(r.findingDate);
+      const key = d ? `${d.getFullYear()}|${d.getMonth()+1}|${r.category}` : '';
       if (!groups[key]) groups[key] = { year:d.getFullYear(), month:d.getMonth()+1, category:r.category, count:0, loss:0 };
       groups[key].count++;
       groups[key].loss += r.totalLoss||0;

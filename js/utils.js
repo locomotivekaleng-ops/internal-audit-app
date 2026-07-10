@@ -17,10 +17,19 @@ const Utils = {
     return 'Rp ' + Number(value).toLocaleString('id-ID');
   },
 
+  parseLocalDate(dateStr) {
+    if (!dateStr) return null;
+    const parts = dateStr.split('T')[0].split('-');
+    if (parts.length === 3) {
+      return new Date(+parts[0], +parts[1] - 1, +parts[2]);
+    }
+    return new Date(dateStr);
+  },
+
   formatDate(dateStr) {
     if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    if (isNaN(d)) return dateStr;
+    const d = Utils.parseLocalDate(dateStr);
+    if (!d || isNaN(d)) return dateStr;
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   },
 
@@ -40,7 +49,8 @@ const Utils = {
   },
 
   getMonthLabel(dateStr) {
-    const d = new Date(dateStr);
+    const d = Utils.parseLocalDate(dateStr);
+    if (!d || isNaN(d)) return dateStr;
     return d.toLocaleString('en-US', { month: 'short', year: '2-digit' });
   },
 
@@ -189,8 +199,8 @@ const Utils = {
   // Month list between two dates
   monthsBetween(startDate, endDate) {
     const months = [];
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = Utils.parseLocalDate(startDate) || new Date();
+    const end = Utils.parseLocalDate(endDate) || new Date();
     start.setDate(1);
     while (start <= end) {
       months.push(new Date(start));

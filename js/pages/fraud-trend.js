@@ -58,11 +58,11 @@ const FraudTrendPage = {
     const cases   = FraudTrendPage.getFiltered();
 
     // LY = prior year (all fraud results, same dept)
-    const curYear  = new Date(f.dateTo).getFullYear();
+    const curYear  = Utils.parseLocalDate(f.dateTo)?.getFullYear() || new Date().getFullYear();
     const allFraud = FraudTrendPage._allFraudResults(f.department);
 
     const prevYearCases = allFraud.filter(r => {
-      const y = new Date(r.findingDate).getFullYear();
+      const y = Utils.parseLocalDate(r.findingDate)?.getFullYear() || 0;
       return y === curYear - 1;
     });
 
@@ -81,7 +81,7 @@ const FraudTrendPage = {
 
     // Category table: AP12M vs AP3M
     const cats      = DB.get('fraud_categories');
-    const now       = new Date(f.dateTo);
+    const now       = Utils.parseLocalDate(f.dateTo) || new Date();
     const ap12Start = new Date(now); ap12Start.setFullYear(ap12Start.getFullYear() - 1);
     const ap3Start  = new Date(now); ap3Start.setMonth(ap3Start.getMonth() - 3);
     const ap12Str   = ap12Start.toISOString().split('T')[0];
