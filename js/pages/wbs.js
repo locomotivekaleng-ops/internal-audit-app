@@ -249,7 +249,7 @@ const WBSPage = {
     return filtered;
   },
 
-  setFilter(k, v) { WBSPage.filters[k] = v; WBSPage.page = 1; WBSPage.refresh(); },
+  setFilter(k, v) { WBSPage.filters[k] = v; if (k === 'brand') WBSPage.filters.outlet = ''; WBSPage.page = 1; WBSPage.refresh(); },
   setSort(column) { if (WBSPage.filters.sortBy===column) { WBSPage.filters.sortDir = WBSPage.filters.sortDir==='asc'?'desc':'asc'; } else { WBSPage.filters.sortBy = column; WBSPage.filters.sortDir = 'asc'; } WBSPage.refresh(); },
 
   refresh() {
@@ -415,7 +415,10 @@ const WBSPage = {
         const trigSel = document.getElementById('pf-trigger');
         if (trigSel) { trigSel.value = 'WBS'; CasesPage._toggleTriggerRef(); }
         const wbsSel = document.getElementById('pf-wbsref');
-        if (wbsSel) wbsSel.value = wbsId;
+        if (wbsSel) {
+          wbsSel.value = wbsId;
+          CasesPage._updateWbsDesc();
+        }
       }, 100);
     }, 200);
   },
@@ -457,7 +460,7 @@ const WBSPage = {
           </div>
           <div class="form-group">
             <label class="form-label required">Brand</label>
-            <select class="form-control" id="wf-brand" data-action="wbs-fill-outlets">
+            <select class="form-control" id="wf-brand">
               <option value="">— Pilih Brand —</option>
               ${brands.map(b=>`<option value="${b.id}" ${c?.brand===b.id?'selected':''}>${b.name}</option>`).join('')}
             </select>
@@ -539,7 +542,11 @@ const WBSPage = {
 
   _genCaseNo() {
     const all = DB.get('wbs_cases');
-    return `WBS-${new Date().getFullYear()}-${String(all.length + 1).padStart(3,'0')}`;
+    const year = new Date().getFullYear();
+    const yearCases = all.filter(c => c.caseNo && c.caseNo.startsWith(`WBS-${year}-`));
+    const nums = yearCases.map(c => parseInt(c.caseNo.split('-')[2]) || 0);
+    const next = (Math.max(0, ...nums) + 1).toString().padStart(3, '0');
+    return `WBS-${year}-${next}`;
   },
 
   saveCase(id) {
@@ -563,8 +570,8 @@ const WBSPage = {
       description:   document.getElementById('wf-desc').value,
       notes:         document.getElementById('wf-notes').value,
     };
-    if (!data.caseNo || !data.reportDate || !data.outletCode) {
-      Toast.error('Please fill all required fields.'); return;
+    if (!data.caseNo || !data.reportDate || !data.brand || !data.outletCode) {
+      Toast.error('Please fill all required fields (Case No, Date, Brand, Outlet).'); return;
     }
     if (id) { DB.update('wbs_cases', id, data); Toast.success('WBS case updated.'); }
     else     { DB.insert('wbs_cases', data);     Toast.success('WBS case added.'); }

@@ -74,11 +74,11 @@ describe('WBSPage._genCaseNo', () => {
     expect(result).toBe(`WBS-${CURRENT_YEAR}-001`);
   });
 
-  it('should count previous year cases too', () => {
+  it('should start fresh for new year', () => {
     DB.set('wbs_cases', [
       { caseNo: 'WBS-2023-005' },
     ]);
     const result = WBSPage._genCaseNo();
-    expect(result).toBe(`WBS-${CURRENT_YEAR}-002`);
+    expect(result).toBe(`WBS-${CURRENT_YEAR}-001`);
   });
 });

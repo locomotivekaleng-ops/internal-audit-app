@@ -21,13 +21,13 @@ const AuditorsPage = {
   buildHtml() {
     const auditors = DB.get('auditors');
     const depts    = ['Store Audit', 'Corporate Audit', 'Business Process Improvement'];
-    const cases    = DB.get('cases');
+    const plannings = DB.get('audit_plannings');
 
     const filtered = auditors.filter(a => {
       if (AuditorsPage.activeDept !== 'all' && a.department !== AuditorsPage.activeDept) return false;
       if (AuditorsPage.search) {
         const q = AuditorsPage.search.toLowerCase();
-        if (!a.name.toLowerCase().includes(q) && !a.nik.includes(q)) return false;
+        if (!a.name.toLowerCase().includes(q) && !(a.nik || '').includes(q)) return false;
       }
       return true;
     });
@@ -36,10 +36,10 @@ const AuditorsPage = {
     const deptStats = depts.map(d => ({
       dept: d,
       count: auditors.filter(a => a.department === d && a.status === 'active').length,
-      cases: cases.filter(c => {
-        const aud = auditors.find(a => a.id === c.assignedTo);
-        return aud && aud.department === d;
-      }).length
+      cases: (() => {
+        const deptAuditorIds = new Set(auditors.filter(a => a.department === d).map(a => a.id));
+        return plannings.filter(p => deptAuditorIds.has(p.leadAuditor)).length;
+      })()
     }));
 
     return `
@@ -80,14 +80,17 @@ const AuditorsPage = {
       ${filtered.length === 0
         ? `<div class="empty-state"><i data-lucide="users"></i><p>No auditors found.</p></div>`
         : `<div class="auditor-grid">
-            ${filtered.map(a => AuditorsPage.buildAuditorCard(a, cases)).join('')}
+            ${filtered.map(a => AuditorsPage.buildAuditorCard(a, plannings)).join('')}
            </div>`}`;
   },
 
-  buildAuditorCard(a, cases) {
-    const assignedCases = cases.filter(c => c.assignedTo === a.id);
-    const closedCases   = assignedCases.filter(c => c.status === 'Closed').length;
-    const totalLoss     = Utils.sum(assignedCases, 'totalLoss');
+  buildAuditorCard(a, plannings) {
+    const assignedCases = plannings.filter(p => p.leadAuditor === a.id);
+    const closedCases   = assignedCases.filter(p => p.status === 'Completed').length;
+    const totalLoss     = assignedCases.reduce((sum, p) => {
+      const results = DB.get('audit_results').filter(r => r.planningId === p.id);
+      return sum + results.reduce((s, r) => s + (r.totalLoss || 0), 0);
+    }, 0);
     const initials      = Utils.getInitials(a.name);
     const colors        = ['#3b82f6','#10b981','#a855f7','#f59e0b','#ef4444','#06b6d4'];
     const colorIdx      = a.name.charCodeAt(0) % colors.length;
@@ -168,8 +171,8 @@ const AuditorsPage = {
   viewAuditor(id) {
     const a = DB.find('auditors', id);
     if (!a) return;
-    const cases = DB.get('cases').filter(c => c.assignedTo === id);
-    const closed = cases.filter(c => c.status === 'Closed').length;
+    const cases = DB.get('audit_plannings').filter(p => p.leadAuditor === id);
+    const closed = cases.filter(p => p.status === 'Completed').length;
     Modal.open(`
       <div class="modal-header">
         <div class="modal-title"><i data-lucide="user"></i> ${a.name}</div>
@@ -198,16 +201,16 @@ const AuditorsPage = {
         ${cases.length > 0 ? `
         <div class="divider"></div>
         <h4 style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:var(--space-3)">Recent Cases</h4>
-        <div class="data-table-wrapper"><table class="data-table"><thead><tr><th>Case No</th><th>Category</th><th>Loss</th><th>Status</th></tr></thead><tbody>
-        ${cases.slice(0,5).map(c=>`<tr>
-          <td class="col-bold">${c.caseNo}</td><td>${c.category}</td>
-          <td class="text-red">Rp ${Utils.formatIDR(c.totalLoss)}</td><td>${Utils.statusBadge(c.status)}</td>
+        <div class="data-table-wrapper"><table class="data-table"><thead><tr><th>No. Laporan</th><th>Outlet</th><th>Total Loss</th><th>Status</th></tr></thead><tbody>
+        ${cases.slice(0,5).map(p=>`<tr>
+          <td class="col-bold">${p.reportNo}</td><td>${p.outletName||p.outletCode}</td>
+          <td class="text-red">Rp ${Utils.formatIDR(DB.get('audit_results').filter(r=>r.planningId===p.id).reduce((s,r)=>s+(r.totalLoss||0),0))}</td><td>${Utils.statusBadge(p.status)}</td>
         </tr>`).join('')}
         </tbody></table></div>` : ''}
       </div>
       <div class="modal-footer">
         ${Auth.isHead() ? `<button class="btn btn-primary" data-action="edit-from-view" data-id="${a.id}"><i data-lucide="pencil"></i> Edit</button>` : ''}
-        <button class="btn btn-secondary modal-close-btn">Close</button>
+        <button class="btn btn-secondary" data-action="modal-close">Close</button>
       </div>`, 'modal-lg');
     if (window.lucide) lucide.createIcons();
   },

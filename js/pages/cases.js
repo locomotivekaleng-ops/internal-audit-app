@@ -70,6 +70,7 @@ const CasesPage = {
       'cases'
     );
     CasesPage._pageWired = false;
+    CasesPage._modalWired = false;
     CasesPage.afterRender();
   },
 
@@ -318,7 +319,7 @@ const CasesPage = {
     });
   },
 
-  setFilter(k, v) { CasesPage.filters[k] = v; CasesPage.page = 1; CasesPage.refresh(); },
+  setFilter(k, v) { CasesPage.filters[k] = v; if (k === 'brand') CasesPage.filters.outlet = ''; CasesPage.page = 1; CasesPage.refresh(); },
   resetFilters() {
     CasesPage.filters = { dateFrom: '', dateTo: '', department: '', brand: '', outlet: '', trigger: '', status: '', search: '' };
     CasesPage.page = 1; CasesPage.refresh();
@@ -682,7 +683,7 @@ const CasesPage = {
     Modal.open(`
       <div class="modal-header">
         <div class="modal-title"><i data-lucide="send"></i> Kirim Laporan ke Auditee</div>
-        <button class="modal-close" data-action="view-planning" data-id="${planningId}" data-tab="planning"><i data-lucide="x"></i></button>
+        <button class="modal-close" data-action="modal-close"><i data-lucide="x"></i></button>
       </div>
       <div class="modal-body">
         <p style="font-size:13px;color:var(--text-secondary);margin-bottom:var(--space-4)">
@@ -700,7 +701,7 @@ const CasesPage = {
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-action="view-planning" data-id="${planningId}" data-tab="planning">Batal</button>
+        <button class="btn btn-secondary" data-action="modal-close">Batal</button>
         <button class="btn btn-primary" data-action="confirm-kirim-laporan" data-id="${planningId}">
           <i data-lucide="send"></i> Konfirmasi &amp; Kirim
         </button>
@@ -1062,7 +1063,7 @@ const CasesPage = {
     Modal.open(`
       <div class="modal-header">
         <div class="modal-title"><i data-lucide="alert-triangle"></i> ${isEdit ? 'Edit' : 'Tambah'} Temuan Audit — ${p?.reportNo}</div>
-        <button class="modal-close" data-action="view-planning" data-id="${planningId}" data-tab="results"><i data-lucide="x"></i></button>
+        <button class="modal-close" data-action="modal-close"><i data-lucide="x"></i></button>
       </div>
       <div class="modal-body">
         <!-- Nature Toggle -->
@@ -1222,7 +1223,7 @@ const CasesPage = {
         <div class="modal-title"><i data-lucide="check-square"></i> ${isEdit ? 'Edit' : 'Tambah'} Agreed Action — ${r?.findingNo || ''}
           ${isAdmin ? '<span class="badge" style="background:rgba(59,130,246,0.15);color:#3b82f6;font-size:10px;margin-left:8px">ADMIN</span>' : ''}
         </div>
-        <button class="modal-close" data-action="view-planning" data-id="${planningId}" data-tab="results"><i data-lucide="x"></i></button>
+        <button class="modal-close" data-action="modal-close"><i data-lucide="x"></i></button>
       </div>
       <div class="modal-body">
         <div class="form-grid form-grid-3">
@@ -1389,8 +1390,9 @@ const CasesPage = {
   _genReportNo() {
     const plannings = DB.get('audit_plannings');
     const year = new Date().getFullYear();
-    const yearPlans = plannings.filter(p => p.reportNo && p.reportNo.includes(String(year)));
-    const next = (yearPlans.length + 1).toString().padStart(3, '0');
+    const yearPlans = plannings.filter(p => p.reportNo && p.reportNo.startsWith(`LAP-${year}-`));
+    const nums = yearPlans.map(p => parseInt(p.reportNo.split('-')[2]) || 0);
+    const next = (Math.max(0, ...nums) + 1).toString().padStart(3, '0');
     return `LAP-${year}-${next}`;
   },
 

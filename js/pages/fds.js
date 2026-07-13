@@ -170,14 +170,15 @@ const FDSPage = {
     const f        = FDSPage.filters;
 
     // Status stacked
-    const statuses = ['Hold','Closed','Planned'];
+    const statuses = ['Planned', 'Investigation', 'In Progress', 'Closed', 'Hold', 'Cancelled'];
+    const statusColors = [CHART_COLORS.cyan, CHART_COLORS.amber, CHART_COLORS.purple, CHART_COLORS.blue, '#64748b', CHART_COLORS.red];
     const total    = filtered.length || 1;
     Charts.stackedHbar('chart-fds-status',
       ['Total FDS'],
       statuses.map((s,i) => ({
         label: s,
         data: [Math.round(filtered.filter(c=>c.status===s).length/total*100)],
-        backgroundColor: [CHART_COLORS.amber, CHART_COLORS.blue, CHART_COLORS.purple][i] + 'cc',
+        backgroundColor: statusColors[i] + 'cc',
         borderRadius: 4
       })));
 
@@ -242,7 +243,7 @@ const FDSPage = {
     return filtered;
   },
 
-  setFilter(k,v) { FDSPage.filters[k]=v; FDSPage.page=1; FDSPage.refresh(); },
+  setFilter(k,v) { FDSPage.filters[k]=v; if (k === 'brand') FDSPage.filters.outlet = ''; FDSPage.page=1; FDSPage.refresh(); },
   setSort(col) { if (FDSPage.filters.sortBy===col) { FDSPage.filters.sortDir=FDSPage.filters.sortDir==='asc'?'desc':'asc'; } else { FDSPage.filters.sortBy=col; FDSPage.filters.sortDir='asc'; } FDSPage.refresh(); },
 
   refresh() {
@@ -518,7 +519,11 @@ const FDSPage = {
 
   _genCaseNo() {
     const all = DB.get('fds_cases');
-    return `FDS-${new Date().getFullYear()}-${String(all.length + 1).padStart(3,'0')}`;
+    const year = new Date().getFullYear();
+    const yearCases = all.filter(c => c.caseNo && c.caseNo.startsWith(`FDS-${year}-`));
+    const nums = yearCases.map(c => parseInt(c.caseNo.split('-')[2]) || 0);
+    const next = (Math.max(0, ...nums) + 1).toString().padStart(3, '0');
+    return `FDS-${year}-${next}`;
   },
 
   saveCase(id) {

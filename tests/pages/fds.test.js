@@ -68,11 +68,11 @@ describe('FDSPage._genCaseNo', () => {
     expect(result).toBe(`FDS-${CURRENT_YEAR}-001`);
   });
 
-  it('should count previous year cases too', () => {
+  it('should start fresh for new year', () => {
     DB.set('fds_cases', [
       { caseNo: 'FDS-2023-005' },
     ]);
     const result = FDSPage._genCaseNo();
-    expect(result).toBe(`FDS-${CURRENT_YEAR}-002`);
+    expect(result).toBe(`FDS-${CURRENT_YEAR}-001`);
   });
 });
