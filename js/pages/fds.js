@@ -129,10 +129,10 @@ const FDSPage = {
               buildRow: (c, index) => `<tr>
                 <td class="col-bold">${Utils.escapeHtml(c.caseNo)}</td>
                 <td>${Utils.formatDate(c.detectionDate)}</td>
-                <td>${Utils.escapeHtml(c.category)}</td>
-                <td><span class="col-mono">${Utils.escapeHtml(c.outletCode)}</span> ${Utils.escapeHtml(c.outletName)}</td>
-                <td>${Utils.statusBadge(c.brand)}</td>
-                <td style="font-size:11px">${Utils.escapeHtml(c.province)}</td>
+                <td>${Utils.escapeHtml(Utils.getCatName(c.category))}</td>
+                <td><span class="col-mono">${Utils.escapeHtml(c.outletCode)}</span> ${Utils.escapeHtml(Utils.getOutletName(c.outletCode))}</td>
+                <td>${Utils.statusBadge(Utils.getBrandName(c.brand))}</td>
+                <td style="font-size:11px">${Utils.escapeHtml(Utils.getProvName(c.province))}</td>
                 <td class="text-amber font-bold">Rp ${Utils.formatIDR(c.estimatedFraud)}</td>
                 <td>${Utils.statusBadge(c.status)}</td>
                 <td>${(() => {
@@ -232,7 +232,7 @@ const FDSPage = {
       if (f.status && c.status !== f.status)  return false;
       if (f.search) {
         const q = f.search.toLowerCase();
-        if (!c.caseNo.toLowerCase().includes(q) && !(c.outletName||'').toLowerCase().includes(q) &&
+        if (!c.caseNo.toLowerCase().includes(q) && !(Utils.getOutletName(c.outletCode)||'').toLowerCase().includes(q) &&
             !(c.outletCode||'').toLowerCase().includes(q)) return false;
       }
       return true;
@@ -308,7 +308,7 @@ const FDSPage = {
             const pi = document.getElementById('ff-prov');
             if (outlet) {
               if (ni) ni.value = outlet.name || '';
-              if (pi) pi.value = outlet.province || '';
+              if (pi) pi.value = Utils.getProvName(outlet.province) || '';
             } else {
               if (ni) ni.value = '';
               if (pi) pi.value = '';
@@ -377,11 +377,11 @@ const FDSPage = {
         <div class="detail-grid">
           <div class="detail-item"><div class="detail-label">Case No</div><div class="detail-value col-bold">${c.caseNo}</div></div>
           <div class="detail-item"><div class="detail-label">Detection Date</div><div class="detail-value">${Utils.formatDate(c.detectionDate)}</div></div>
-          <div class="detail-item"><div class="detail-label">Category</div><div class="detail-value">${c.category}</div></div>
+          <div class="detail-item"><div class="detail-label">Category</div><div class="detail-value">${Utils.getCatName(c.category)}</div></div>
           <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value">${Utils.statusBadge(c.status)}</div></div>
-          <div class="detail-item"><div class="detail-label">Outlet</div><div class="detail-value"><span class="col-mono">${c.outletCode}</span> ${c.outletName}</div></div>
-          <div class="detail-item"><div class="detail-label">Brand</div><div class="detail-value">${c.brand}</div></div>
-          <div class="detail-item"><div class="detail-label">Province</div><div class="detail-value">${c.province}</div></div>
+          <div class="detail-item"><div class="detail-label">Outlet</div><div class="detail-value"><span class="col-mono">${c.outletCode}</span> ${Utils.getOutletName(c.outletCode)}</div></div>
+          <div class="detail-item"><div class="detail-label">Brand</div><div class="detail-value">${Utils.getBrandName(c.brand)}</div></div>
+          <div class="detail-item"><div class="detail-label">Province</div><div class="detail-value">${Utils.getProvName(c.province)}</div></div>
           <div class="detail-item"><div class="detail-label">Estimated Fraud</div><div class="detail-value text-amber font-bold">${Utils.formatIDRFull(c.estimatedFraud)}</div></div>
           <div class="detail-item"><div class="detail-label">Assigned To</div><div class="detail-value">${aud ? aud.name : '-'}</div></div>
           <div class="detail-item"></div>
@@ -442,7 +442,7 @@ const FDSPage = {
           <div class="form-group">
             <label class="form-label required">Category</label>
             <select class="form-control" id="ff-cat">
-              ${cats.map(cat=>`<option value="${cat.name}" ${c?.category===cat.name?'selected':''}>${cat.name}</option>`).join('')}
+              ${cats.map(cat=>`<option value="${cat.id}" ${c?.category===cat.id?'selected':''}>${cat.name}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
@@ -461,11 +461,11 @@ const FDSPage = {
           </div>
           <div class="form-group">
             <label class="form-label required">Outlet Name</label>
-            <input type="text" class="form-control" id="ff-outletname" value="${Utils.escapeHtml(c?.outletName||'')}" readonly />
+            <input type="text" class="form-control" id="ff-outletname" value="${Utils.escapeHtml(Utils.getOutletName(c?.outletCode||''))}" readonly />
           </div>
           <div class="form-group">
             <label class="form-label required">Province</label>
-            <input type="text" class="form-control" id="ff-prov" value="${Utils.escapeHtml(c?.province||'')}" readonly />
+            <input type="text" class="form-control" id="ff-prov" value="${Utils.escapeHtml(Utils.getProvName(c?.province||''))}" readonly />
           </div>
           <div class="form-group">
             <label class="form-label required">Status</label>
@@ -529,7 +529,6 @@ const FDSPage = {
   saveCase(id) {
     const outletVal = document.getElementById('ff-outlet')?.value || '';
     const outletCode = outletVal.split(' — ')[0].trim();
-    const outletName = outletVal.includes(' — ') ? outletVal.split(' — ').slice(1).join(' — ') : '';
 
     const data = {
       caseNo:        document.getElementById('ff-caseno').value,
@@ -537,7 +536,6 @@ const FDSPage = {
       category:      document.getElementById('ff-cat').value,
       brand:         document.getElementById('ff-brand').value,
       outletCode:    outletCode,
-      outletName:    outletName,
       province:      document.getElementById('ff-prov').value,
       status:        document.getElementById('ff-status').value,
       estimatedFraud:Utils.parseFormattedNumber(document.getElementById('ff-fraud').value),

@@ -1,0 +1,13 @@
+id,nature,name,color,description
+cat_lp,Fraud,Loyalty Point,#3b82f6,Fraud related to customer loyalty points
+cat_sales,Fraud,Sales,#10b981,Sales manipulation or misreporting
+cat_cash,Fraud,Cash,#f59e0b,Cash misappropriation or theft
+cat_inv,Fraud,Inventory,#a855f7,Inventory theft or manipulation
+cat_exp,Fraud,Expenses,#ef4444,Expense fraud or manipulation
+cat_cust,Fraud,Customer Point,#06b6d4,Customer point manipulation
+cat_adm_sop,Administrative,SOP,#64748b,Ketidakpatuhan terhadap SOP yang berlaku
+cat_adm_doc,Administrative,Dokumentasi,#94a3b8,Dokumen tidak lengkap atau tidak valid
+cat_adm_ctrl,Administrative,Kontrol Internal,#7c3aed,Kelemahan pada kontrol internal operasional
+cat_adm_rec,Administrative,Rekonsiliasi Minor,#0ea5e9,Selisih rekonsiliasi kecil yang bukan indikasi fraud
+cat_adm_train,Administrative,Training Gap,#f97316,Karyawan belum mengikuti pelatihan wajib
+cat_adm_rep,Administrative,Keterlambatan Pelaporan,#84cc16,Laporan tidak dikirim tepat waktu sesuai SOP

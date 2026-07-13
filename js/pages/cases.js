@@ -84,7 +84,7 @@ const CasesPage = {
 
     const brands   = DB.get('brands');
     const auditors = DB.get('auditors');
-    const depts    = ['Store Audit', 'Corporate Audit', 'Business Process Improvement'];
+    const depts    = DB.get('departments');
     const triggers = ['WBS', 'FDS', 'Direct'];
     const statuses = ['Plan', 'In Progress', 'Completed', 'Cancelled'];
 
@@ -144,7 +144,7 @@ const CasesPage = {
           </select>
           <select class="form-control" id="cases-department">
             <option value="">Semua Dept</option>
-            ${depts.map(d => `<option value="${d}" ${CasesPage.filters.department === d ? 'selected' : ''}>${d}</option>`).join('')}
+            ${depts.map(d => `<option value="${d.id}" ${CasesPage.filters.department === d.id ? 'selected' : ''}>${d.name}</option>`).join('')}
           </select>
           <select class="form-control" id="cases-brand">
             <option value="">Semua Brand</option>
@@ -197,8 +197,8 @@ const CasesPage = {
                   <td class="col-bold" style="font-size:12px">${Utils.escapeHtml(p.reportNo)}</td>
                   <td style="font-size:12px">${Utils.formatDate(p.planningDate)}</td>
                   <td><span class="badge ${p.trigger === 'WBS' ? 'badge-purple' : p.trigger === 'FDS' ? 'badge-cyan' : 'badge-gray'}">${Utils.escapeHtml(p.trigger)}</span></td>
-                  <td style="font-size:11px"><span class="col-mono">${Utils.escapeHtml(p.outletCode || '')}</span> ${Utils.escapeHtml(p.outletName)}</td>
-                  <td style="font-size:12px">${Utils.escapeHtml(p.brand)}</td>
+                  <td style="font-size:11px"><span class="col-mono">${Utils.escapeHtml(p.outletCode || '')}</span> ${Utils.escapeHtml(Utils.getOutletName(p.outletCode))}</td>
+                  <td style="font-size:12px">${Utils.escapeHtml(Utils.getBrandName(p.brand))}</td>
                   <td style="font-size:12px">${lead ? Utils.escapeHtml(lead.name) : '-'}</td>
                   <td>
                     <span class="badge ${pResults.length > 0 ? 'badge-amber' : 'badge-gray'}" style="cursor:pointer" data-action="view-planning" data-id="${p.id}" data-tab="results">
@@ -283,7 +283,7 @@ const CasesPage = {
             const code = target.value.split(' — ')[0].trim();
             const outlet = DB.get('outlets').find(o => o.code === code);
             if (outlet) {
-              document.getElementById('pf-province').value = outlet.province || '';
+              document.getElementById('pf-province').value = Utils.getProvName(outlet.province) || '';
               document.getElementById('pf-outlet-manager').value = outlet.outletManager || '';
               document.getElementById('pf-multi-unit-manager').value = outlet.multiUnitManager || '';
               document.getElementById('pf-area-manager').value = outlet.areaManager || '';
@@ -312,7 +312,7 @@ const CasesPage = {
       if (f.search) {
         const q = f.search.toLowerCase();
         if (!p.reportNo.toLowerCase().includes(q) &&
-            !p.outletName.toLowerCase().includes(q) &&
+            !(Utils.getOutletName(p.outletCode)||'').toLowerCase().includes(q) &&
             !(p.outletCode || '').toLowerCase().includes(q)) return false;
       }
       return true;
@@ -414,14 +414,14 @@ const CasesPage = {
             <div class="detail-item"><div class="detail-label">Periode Audit</div><div class="detail-value">${Utils.formatDate(p.auditDateFrom)} → ${Utils.formatDate(p.auditDateTo)}</div></div>
             <div class="detail-item"><div class="detail-label">Trigger</div><div class="detail-value"><span class="badge ${p.trigger === 'WBS' ? 'badge-purple' : p.trigger === 'FDS' ? 'badge-cyan' : 'badge-gray'}">${p.trigger}</span></div></div>
             ${triggerHtml}
-            <div class="detail-item"><div class="detail-label">Outlet</div><div class="detail-value"><span class="col-mono">${p.outletCode}</span> ${p.outletName}</div></div>
-            <div class="detail-item"><div class="detail-label">Brand</div><div class="detail-value">${p.brand}</div></div>
-            <div class="detail-item"><div class="detail-label">Provinsi</div><div class="detail-value">${p.province}</div></div>
+            <div class="detail-item"><div class="detail-label">Outlet</div><div class="detail-value"><span class="col-mono">${p.outletCode}</span> ${Utils.getOutletName(p.outletCode)}</div></div>
+            <div class="detail-item"><div class="detail-label">Brand</div><div class="detail-value">${Utils.getBrandName(p.brand)}</div></div>
+            <div class="detail-item"><div class="detail-label">Provinsi</div><div class="detail-value">${Utils.getProvName(p.province)}</div></div>
             <div class="detail-item"><div class="detail-label">Outlet Manager</div><div class="detail-value">${p.outletManager || '-'}</div></div>
             <div class="detail-item"><div class="detail-label">Multi Unit Manager</div><div class="detail-value">${p.multiUnitManager || '-'}</div></div>
             <div class="detail-item"><div class="detail-label">Area Manager</div><div class="detail-value">${p.areaManager || '-'}</div></div>
             <div class="detail-item"><div class="detail-label">Distrik Manager</div><div class="detail-value">${p.distrikManager || '-'}</div></div>
-            <div class="detail-item"><div class="detail-label">Departemen</div><div class="detail-value">${p.department || '-'}</div></div>
+            <div class="detail-item"><div class="detail-label">Departemen</div><div class="detail-value">${Utils.getDeptName(p.department) || '-'}</div></div>
             <div class="detail-item"><div class="detail-label">Tipe Audit</div><div class="detail-value">${Utils.statusBadge(p.auditType)}</div></div>
             <div class="detail-item"><div class="detail-label">Lead Auditor</div><div class="detail-value">${lead ? lead.name : '-'}</div></div>
             <div class="detail-item"><div class="detail-label">Tim Auditor</div><div class="detail-value">${team || '-'}</div></div>
@@ -748,7 +748,7 @@ const CasesPage = {
     const auditors  = DB.get('auditors').filter(a => a.status === 'active');
     const brands    = DB.get('brands');
     const provinces = DB.get('provinces');
-    const depts     = ['Store Audit', 'Corporate Audit', 'Business Process Improvement'];
+    const depts     = DB.get('departments');
     const outlets   = DB.get('outlets');
     const editOutlet = p?.outletCode ? outlets.find(o => o.code === p.outletCode) : null;
     const outletDisplay = editOutlet ? `${editOutlet.code} — ${editOutlet.name}` : '';
@@ -788,7 +788,7 @@ const CasesPage = {
             <label class="form-label">WBS Case Ref</label>
             <select class="form-control" id="pf-wbsref" data-action="update-wbs-desc">
               <option value="">— Pilih WBS Case —</option>
-              ${wbsCases.map(w => `<option value="${w.id}" ${p?.triggerRef === w.id ? 'selected' : ''}>${w.caseNo} — ${w.outletName}</option>`).join('')}
+              ${wbsCases.map(w => `<option value="${w.id}" ${p?.triggerRef === w.id ? 'selected' : ''}>${w.caseNo} — ${Utils.getOutletName(w.outletCode)}</option>`).join('')}
             </select>
             <div id="pf-wbs-desc-container"></div>
           </div>
@@ -796,7 +796,7 @@ const CasesPage = {
             <label class="form-label">FDS Case Ref</label>
             <select class="form-control" id="pf-fdsref" data-action="update-fds-desc">
               <option value="">— Pilih FDS Case —</option>
-              ${fdsCases.map(f => `<option value="${f.id}" ${p?.triggerRef === f.id ? 'selected' : ''}>${f.caseNo} — ${f.outletName}</option>`).join('')}
+              ${fdsCases.map(f => `<option value="${f.id}" ${p?.triggerRef === f.id ? 'selected' : ''}>${f.caseNo} — ${Utils.getOutletName(f.outletCode)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
@@ -808,7 +808,7 @@ const CasesPage = {
           <div class="form-group">
             <label class="form-label required">Departemen</label>
             <select class="form-control" id="pf-dept">
-              ${depts.map(d => `<option value="${d}" ${p?.department === d ? 'selected' : ''}>${d}</option>`).join('')}
+              ${depts.map(d => `<option value="${d.id}" ${p?.department === d.id ? 'selected' : ''}>${d.name}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
@@ -827,7 +827,7 @@ const CasesPage = {
           </div>
           <div class="form-group">
             <label class="form-label">Provinsi</label>
-            <input type="text" class="form-control" id="pf-province" value="${Utils.escapeHtml(p?.province || '')}" readonly />
+            <input type="text" class="form-control" id="pf-province" value="${Utils.escapeHtml(Utils.getProvName(p?.province) || '')}" readonly />
           </div>
           <div class="form-group">
             <label class="form-label">Outlet Manager</label>
@@ -979,7 +979,6 @@ const CasesPage = {
     const dept        = document.getElementById('pf-dept')?.value;
     const brand       = document.getElementById('pf-brand')?.value;
     const outletVal   = document.getElementById('pf-outlet')?.value;
-    const province    = document.getElementById('pf-province')?.value;
     const leadAuditor = document.getElementById('pf-lead')?.value;
     const dateFrom    = document.getElementById('pf-datefrom')?.value;
     const dateTo      = document.getElementById('pf-dateto')?.value;
@@ -989,7 +988,8 @@ const CasesPage = {
       Toast.error('Mohon lengkapi field yang wajib diisi (*).'); return;
     }
     const outletCode = outletVal.split(' — ')[0].trim();
-    const outletName = outletVal.includes(' — ') ? outletVal.split(' — ').slice(1).join(' — ') : '';
+    const outlet = DB.get('outlets').find(o => o.code === outletCode);
+    const province = outlet ? outlet.province : '';
 
     let triggerRef = null;
     if (trigger === 'WBS') triggerRef = document.getElementById('pf-wbsref')?.value || null;
@@ -1015,7 +1015,7 @@ const CasesPage = {
     const areaManager       = document.getElementById('pf-area-manager')?.value.trim() || '';
     const distrikManager    = document.getElementById('pf-distrik-manager')?.value.trim() || '';
 
-    const record = { reportNo, planningDate: planDate, status, trigger, triggerRef, auditType, department: dept, brand, outletCode, outletName, province, outletManager, multiUnitManager, areaManager, distrikManager, leadAuditor, auditorTeam: [], auditDateFrom: dateFrom, auditDateTo: dateTo, scope };
+    const record = { reportNo, planningDate: planDate, status, trigger, triggerRef, auditType, department: dept, brand, outletCode, province, outletManager, multiUnitManager, areaManager, distrikManager, leadAuditor, auditorTeam: [], auditDateFrom: dateFrom, auditDateTo: dateTo, scope };
 
     if (id) {
       DB.update('audit_plannings', id, record);

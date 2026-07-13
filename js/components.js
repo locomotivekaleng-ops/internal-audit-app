@@ -48,7 +48,7 @@ const Components = {
               <div class="user-avatar">${initials}</div>
               <div class="user-info">
                 <div class="user-name">${session?.name || 'User'}</div>
-                <div class="user-role">${Components.roleLabel(session?.role)} ${session?.department ? '· ' + session.department : ''}</div>
+                <div class="user-role">${Components.roleLabel(session?.role)} ${session?.department ? '· ' + Utils.getDeptName(session.department) : ''}</div>
               </div>
             </div>
             <button class="btn btn-secondary w-full mt-2" style="font-size:11px;justify-content:center" data-action="logout">

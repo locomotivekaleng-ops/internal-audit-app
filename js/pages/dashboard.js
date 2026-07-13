@@ -37,7 +37,7 @@ const DashboardPage = {
     const fds       = DB.get('fds_cases');
     const brands    = DB.get('brands');
     const provinces = DB.get('provinces');
-    const depts     = ['Store Audit', 'Corporate Audit', 'Business Process Improvement'];
+    const depts     = DB.get('departments');
 
     const f = DashboardPage.filters;
 
@@ -95,8 +95,8 @@ const DashboardPage = {
     const deskReview  = filteredPlans.filter(p => p.auditType === 'Desk Review').length;
 
     const brandOpts    = brands.map(b => ({ value: b.id, label: b.name }));
-    const provOpts     = provinces.map(p => ({ value: p.name, label: p.name }));
-    const deptOpts     = depts.map(d => ({ value: d, label: d }));
+    const provOpts     = provinces.map(p => ({ value: p.id, label: p.name }));
+    const deptOpts     = depts.map(d => ({ value: d.id, label: d.name }));
     const triggerOpts  = ['WBS', 'FDS', 'Direct'].map(t => ({ value: t, label: t }));
     const auditorOpts  = DB.get('auditors').map(a => ({ value: a.id, label: a.name }));
 
@@ -295,13 +295,13 @@ const DashboardPage = {
     // ---- Chart 5: Top 5 Provinces by Findings ----
     const byProv = Utils.groupBy(filteredResults, r => {
       const p = filteredPlans.find(pl => pl.id === r.planningId);
-      return p?.province || 'Unknown';
+      return Utils.getProvName(p?.province) || 'Unknown';
     });
     // Rewrite groupBy for custom key
     const provMap = {};
     filteredResults.forEach(r => {
       const p = filteredPlans.find(pl => pl.id === r.planningId);
-      const key = p?.province || 'Unknown';
+      const key = Utils.getProvName(p?.province) || 'Unknown';
       provMap[key] = (provMap[key] || 0) + 1;
     });
     const provEntries = Object.entries(provMap)
@@ -461,7 +461,7 @@ const DashboardPage = {
                     <tr>
                       <td class="col-bold"><a href="javascript:void(0)" data-action="nav-planning" data-planning-id="${p.id}" style="color:var(--blue-light)">${p.reportNo}</a></td>
                       <td>${Utils.formatDate(p.planningDate)}</td>
-                      <td>${p.brand} — <span class="col-mono" style="font-size:11px">${p.outletCode}</span> ${p.outletName}</td>
+                      <td>${Utils.getBrandName(p.brand)} — <span class="col-mono" style="font-size:11px">${p.outletCode}</span> ${Utils.getOutletName(p.outletCode)}</td>
                       <td><span class="badge badge-gray">${p.trigger}</span></td>
                       <td>${aud}</td>
                       <td style="text-align:center">${Utils.laporanBadge(p.status)}</td>
@@ -503,7 +503,7 @@ const DashboardPage = {
                       <tr>
                         <td class="col-bold"><a href="javascript:void(0)" data-action="nav-planning" data-planning-id="${p.id}" style="color:var(--blue-light)">${p.reportNo}</a></td>
                         <td>${Utils.formatDate(p.planningDate)}</td>
-                        <td>${p.brand} — ${p.outletName}</td>
+                        <td>${Utils.getBrandName(p.brand)} — ${Utils.getOutletName(p.outletCode)}</td>
                         <td>${aud}</td>
                         <td style="font-weight:600;color:var(--green-light)">${p.reportSentDate ? Utils.formatDate(p.reportSentDate) : '-'}</td>
                       </tr>
@@ -534,7 +534,7 @@ const DashboardPage = {
                       <tr>
                         <td class="col-bold"><a href="javascript:void(0)" data-action="nav-planning" data-planning-id="${p.id}" style="color:var(--blue-light)">${p.reportNo}</a></td>
                         <td>${Utils.formatDate(p.planningDate)}</td>
-                        <td>${p.brand} — ${p.outletName}</td>
+                        <td>${Utils.getBrandName(p.brand)} — ${Utils.getOutletName(p.outletCode)}</td>
                         <td>${aud}</td>
                         <td>${Utils.laporanBadge(p.status)}</td>
                       </tr>
@@ -570,8 +570,8 @@ const DashboardPage = {
                   <tr>
                     <td class="col-bold"><a href="javascript:void(0)" data-action="nav-wbs" data-case-id="${c.id}" style="color:var(--blue-light)">${c.caseNo}</a></td>
                     <td>${Utils.formatDate(c.reportDate)}</td>
-                    <td>${c.category}</td>
-                    <td>${c.brand} — ${c.outletName}</td>
+                    <td>${Utils.getCatName(c.category)}</td>
+                    <td>${Utils.getBrandName(c.brand)} — ${Utils.getOutletName(c.outletCode)}</td>
                     <td>${Utils.severityBadge(c.severity)}</td>
                     <td style="font-weight:600;color:var(--text-muted)">Rp ${Utils.formatIDR(c.estimatedFraud)}</td>
                     <td style="text-align:center">${Utils.statusBadge(c.status)}</td>
@@ -605,8 +605,8 @@ const DashboardPage = {
                   <tr>
                     <td class="col-bold"><a href="javascript:void(0)" data-action="nav-fds" data-case-id="${c.id}" style="color:var(--blue-light)">${c.caseNo}</a></td>
                     <td>${Utils.formatDate(c.detectionDate)}</td>
-                    <td>${c.category}</td>
-                    <td>${c.brand} — ${c.outletName}</td>
+                    <td>${Utils.getCatName(c.category)}</td>
+                    <td>${Utils.getBrandName(c.brand)} — ${Utils.getOutletName(c.outletCode)}</td>
                     <td style="font-weight:600;color:var(--text-muted)">Rp ${Utils.formatIDR(c.estimatedFraud)}</td>
                     <td style="text-align:center">${Utils.statusBadge(c.status)}</td>
                   </tr>
@@ -644,7 +644,7 @@ const DashboardPage = {
                   return `
                     <tr>
                       <td class="col-bold"><a href="javascript:void(0)" data-action="nav-planning" data-planning-id="${p.id}" style="color:var(--blue-light)">${p.reportNo}</a></td>
-                      <td>${p.brand} — ${p.outletName}</td>
+                      <td>${Utils.getBrandName(p.brand)} — ${Utils.getOutletName(p.outletCode)}</td>
                       <td style="text-align:right; font-weight:600; color:var(--red-light); ${type === 'total-loss' ? 'background:rgba(239,68,68,0.05)' : ''}">Rp ${Utils.formatIDR(m.totalLoss)}</td>
                       <td style="text-align:right; font-weight:600; color:var(--green-light); ${type === 'recovery' ? 'background:rgba(16,185,129,0.05)' : ''}">Rp ${Utils.formatIDR(m.totalRecovery)}</td>
                       <td style="text-align:right; font-weight:600; color:var(--purple-light); ${type === 'unrecovered' ? 'background:rgba(139,92,246,0.05)' : ''}">Rp ${Utils.formatIDR(m.totalUnrecovered)}</td>

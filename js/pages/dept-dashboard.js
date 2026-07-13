@@ -21,7 +21,7 @@ const DeptDashboardPage = {
       const allDepts = DB.get('departments') || [];
       const nonAuditDepts = allDepts.filter(d => !['Store Audit', 'Corporate Audit', 'Business Process Improvement'].includes(d.name));
       if (!DeptDashboardPage.selectedDept) {
-        DeptDashboardPage.selectedDept = nonAuditDepts.length > 0 ? nonAuditDepts[0].name : '';
+        DeptDashboardPage.selectedDept = nonAuditDepts.length > 0 ? nonAuditDepts[0].id : '';
       }
     }
 
@@ -32,7 +32,7 @@ const DeptDashboardPage = {
     }
     Components.renderAppShell(
       'Dashboard Departemen',
-      dept + ' — Status Tindakan Perbaikan (AAP)',
+      Utils.getDeptName(dept) + ' — Status Tindakan Perbaikan (AAP)',
       DeptDashboardPage.buildHtml(dept, isDiv),
       'dept-dashboard'
     );
@@ -61,14 +61,14 @@ const DeptDashboardPage = {
     return `
       <div class="page-header">
         <div class="page-header-left">
-          <h2>Dashboard Departemen — ${dept}</h2>
+          <h2>Dashboard Departemen — ${Utils.getDeptName(dept)}</h2>
           <p>${isDiv ? 'Ringkasan Action Plan yang menjadi tanggung jawab divisi Anda.' : 'Pilih departemen untuk melihat status Action Plan.'}</p>
         </div>
         ${!isDiv ? `
         <div class="page-header-actions">
           <select class="form-control" id="dept-dashboard-select" style="min-width:200px">
             ${DB.get('departments').filter(d => !['Store Audit','Corporate Audit','Business Process Improvement'].includes(d.name)).map(d =>
-              `<option value="${d.name}" ${DeptDashboardPage.selectedDept === d.name ? 'selected' : ''}>${d.name}</option>`
+              `<option value="${d.id}" ${DeptDashboardPage.selectedDept === d.id ? 'selected' : ''}>${d.name}</option>`
             ).join('')}
           </select>
         </div>` : ''}

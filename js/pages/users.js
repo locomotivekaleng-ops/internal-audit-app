@@ -80,7 +80,7 @@ const UsersPage = {
                     <td class="col-mono">${u.username}</td>
                     <td style="font-size:11px">${u.email||'-'}</td>
                     <td>${UsersPage.roleBadge(u.role)}</td>
-                    <td style="font-size:11px;color:var(--text-muted)">${u.department||'—'}</td>
+                    <td style="font-size:11px;color:var(--text-muted)">${Utils.getDeptName(u.department)||'—'}</td>
                     <td>${Utils.statusBadge(u.status)}</td>
                     <td style="font-size:11px">${Utils.formatDate(u.createdAt)}</td>
                     <td>
@@ -175,7 +175,7 @@ const UsersPage = {
             <label class="form-label required" id="dept-label">Department</label>
             <select class="form-control" id="uf-dept">
               <option value="">-- Pilih Department --</option>
-              ${depts.map(d=>`<option value="${d.name}" ${u?.department===d.name?'selected':''}>${d.name}</option>`).join('')}
+              ${depts.map(d=>`<option value="${d.id}" ${u?.department===d.id?'selected':''}>${d.name}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">

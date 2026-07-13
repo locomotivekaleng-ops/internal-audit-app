@@ -118,8 +118,8 @@ const OutletProfilePage = {
             <div>
               <h3 style="font-size:18px;font-weight:700"><span class="col-mono">${outlet.code}</span> — ${Utils.escapeHtml(outlet.name)}</h3>
               <div style="display:flex;gap:12px;margin-top:4px;font-size:12px;color:var(--text-muted)">
-                <span><strong style="color:var(--text-secondary)">Brand:</strong> ${Utils.statusBadge(outlet.brand)}</span>
-                <span><strong style="color:var(--text-secondary)">Provinsi:</strong> ${outlet.province}</span>
+                <span><strong style="color:var(--text-secondary)">Brand:</strong> ${Utils.statusBadge(Utils.getBrandName(outlet.brand))}</span>
+                <span><strong style="color:var(--text-secondary)">Provinsi:</strong> ${Utils.getProvName(outlet.province)}</span>
               </div>
             </div>
             <button class="btn btn-secondary btn-sm" data-action="op-export">
@@ -270,7 +270,7 @@ const OutletProfilePage = {
                 return `<tr>
                   <td class="col-mono" style="font-size:11px">${r.findingNo}</td>
                   <td style="font-size:12px;max-width:200px">${Utils.escapeHtml(r.findingTitle)}</td>
-                  <td style="font-size:12px">${Utils.statusBadge(r.category)}</td>
+                  <td style="font-size:12px">${Utils.statusBadge(Utils.getCatName(r.category))}</td>
                   <td>${r.nature === 'Fraud'
                     ? `<span class="badge badge-red">Fraud</span>`
                     : `<span class="badge badge-blue">Administratif</span>`}</td>
@@ -458,7 +458,7 @@ const OutletProfilePage = {
       }
       return `<div class="combobox-item" onmousedown="OutletProfilePage._selectOutletFromCombobox('${o.code}')">
         <span class="combobox-item-label">${display}</span>
-        <span class="combobox-item-brand">${o.brand}</span>
+        <span class="combobox-item-brand">${Utils.getBrandName(o.brand)}</span>
       </div>`;
     }).join('');
   },
@@ -530,8 +530,8 @@ const OutletProfilePage = {
               ${rows.map(r => `
                 <tr style="cursor:pointer" data-action="op-go-to-outlet" data-outlet-code="${r.outlet.code}" title="Klik untuk lihat profil outlet">
                   <td class="col-bold"><span class="col-mono">${r.outlet.code}</span> ${Utils.escapeHtml(r.outlet.name)}</td>
-                  <td>${Utils.statusBadge(r.outlet.brand)}</td>
-                  <td style="font-size:11px">${r.outlet.province}</td>
+                  <td>${Utils.statusBadge(Utils.getBrandName(r.outlet.brand))}</td>
+                  <td style="font-size:11px">${Utils.getProvName(r.outlet.province)}</td>
                   <td>${r.fraudCount > 0 ? `<span class="badge badge-red">${r.fraudCount}</span>` : '<span style="color:var(--text-muted)">0</span>'}</td>
                   <td style="font-size:12px;font-weight:600">Rp ${Utils.formatIDR(r.totalLoss)}</td>
                   <td style="font-size:12px">${r.fraudsterCount > 0 ? r.fraudsterCount : '-'}</td>
@@ -641,7 +641,7 @@ const OutletProfilePage = {
       const fc = fraudResults.length;
       const tl = fraudResults.reduce((s, r) => s + (parseInt(r.totalLoss) || 0), 0);
       const fs = new Set(fraudResults.filter(r => r.fraudsterName).map(r => r.fraudsterName)).size;
-      csv += `${o.code} - ${o.name},${o.brand},${o.province},${fc},${tl},${fs}\n`;
+      csv += `${o.code} - ${o.name},${Utils.getBrandName(o.brand)},${Utils.getProvName(o.province)},${fc},${tl},${fs}\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -676,7 +676,7 @@ const OutletProfilePage = {
       const pids = DB.get('audit_plannings').filter(p => p.outletCode === outlet.code).map(p => p.id);
       const results = DB.get('audit_results').filter(r => pids.includes(r.planningId));
       results.forEach(r => {
-        csv += `${r.findingNo},"${(r.findingTitle || '').replace(/"/g, '""')}",${r.category},${r.nature},${r.severity},${r.totalLoss || 0},${r.status || 'Open'},${r.fraudsterName || ''},${r.fraudsterNik || ''},${r.fraudsterPosition || ''}\n`;
+        csv += `${r.findingNo},"${(r.findingTitle || '').replace(/"/g, '""')}",${Utils.getCatName(r.category)},${r.nature},${r.severity},${r.totalLoss || 0},${r.status || 'Open'},${r.fraudsterName || ''},${r.fraudsterNik || ''},${r.fraudsterPosition || ''}\n`;
       });
       filename = `Findings_${outlet.code}_${new Date().toISOString().split('T')[0]}.csv`;
 

@@ -77,7 +77,7 @@ const FraudTrendPage = {
     const totalPlans     = filteredPlans.length;
     const achievementPct = totalPlans ? Math.round((completedPlans / totalPlans) * 100) : 0;
 
-    const depts = ['Store Audit', 'Corporate Audit', 'Business Process Improvement'];
+    const depts = DB.get('departments');
 
     // Category table: AP12M vs AP3M
     const cats      = DB.get('fraud_categories');
@@ -96,8 +96,8 @@ const FraudTrendPage = {
     const fraudCats = cats.filter(c => !adminCatNames.includes(c.name));
 
     const catRows = fraudCats.map(cat => {
-      const c12 = ap12Cases.filter(r => r.category === cat.name);
-      const c3  = ap3Cases.filter(r =>  r.category === cat.name);
+      const c12 = ap12Cases.filter(r => r.category === cat.id);
+      const c3  = ap3Cases.filter(r =>  r.category === cat.id);
       const loss12 = Utils.sum(c12, 'totalLoss') / 12;
       const loss3  = Utils.sum(c3,  'totalLoss') / 3;
       const cnt12  = c12.length / 12;
@@ -117,7 +117,7 @@ const FraudTrendPage = {
           <input type="date" class="form-control" id="ft-date-to" value="${f.dateTo}" data-filter="dateTo" />
           <select class="form-control" data-filter="department">
             <option value="">All Departments</option>
-            ${depts.map(d=>`<option value="${d}" ${f.department===d?'selected':''}>${d}</option>`).join('')}
+            ${depts.map(d=>`<option value="${d.id}" ${f.department===d.id?'selected':''}>${d.name}</option>`).join('')}
           </select>
         </div>
       </div>

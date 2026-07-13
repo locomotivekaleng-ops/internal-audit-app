@@ -1,0 +1,5 @@
+id,username,password,name,email,role,department,status,picDepartment,createdAt
+usr_superadmin,admin,admin123,Administrator,admin@internalaudit.com,superadmin,,active,,2025-01-01T00:00:00Z
+usr_manager,manager,123,Manager,manager@internalaudit.com,head,Store Audit,active,,2025-01-01T00:00:00Z
+usr_auditor,auditor,123,Auditor,auditor@internalaudit.com,auditor,Store Audit,active,,2025-01-01T00:00:00Z
+usr_divisi,divisi,123,Divisi,divisi@internalaudit.com,division,Operations,active,,2025-01-01T00:00:00Z

@@ -1,0 +1,11 @@
+id,name,code
+dept_1,Store Audit,SA
+dept_2,Corporate Audit,CA
+dept_3,Business Process Improvement,BPI
+dept_4,Operations,OPS
+dept_5,Marketing,MKT
+dept_6,Finance,FIN
+dept_7,Human Resources,HR
+dept_8,Information Technology,IT
+dept_9,Supply Chain,SC
+dept_10,Legal & Compliance,LGL

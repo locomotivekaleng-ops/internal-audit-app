@@ -273,7 +273,34 @@ const Utils = {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
-  }
+  },
+
+  // ── Master Data Lookup Helpers ─────────────────────────
+  getCatName(id) {
+    if (!id) return '';
+    const cat = DB.find('fraud_categories', id);
+    return cat ? cat.name : id;
+  },
+  getProvName(id) {
+    if (!id) return '';
+    const p = DB.find('provinces', id);
+    return p ? p.name : id;
+  },
+  getDeptName(id) {
+    if (!id) return '';
+    const d = DB.find('departments', id);
+    return d ? d.name : id;
+  },
+  getOutletName(code) {
+    if (!code) return '';
+    const outlet = DB.get('outlets').find(o => o.code === code);
+    return outlet ? outlet.name : code;
+  },
+  getBrandName(id) {
+    if (!id) return '';
+    const b = DB.find('brands', id);
+    return b ? b.name : id;
+  },
 };
 
 // ---- Toast ----
@@ -376,7 +403,7 @@ const Modal = {
       Modal.close();
       onConfirm();
     };
-  }
+  },
 };
 
 window.Utils = Utils;

@@ -271,7 +271,7 @@ const ClosingAnalysisPage = {
                   <td class="col-bold" style="cursor:pointer" data-action="view-planning" data-planning-id="${a.planningId}" data-tab="planning">${Utils.escapeHtml(reportNo)}</td>
                   <td style="max-width:250px">${Utils.escapeHtml(a.actionTitle)}</td>
                   <td>${Utils.escapeHtml(a.picName)}</td>
-                  <td style="font-size:11px;color:var(--text-muted)">${Utils.escapeHtml(a.picDepartment) || '-'}</td>
+                  <td style="font-size:11px;color:var(--text-muted)">${Utils.getDeptName(a.picDepartment) || Utils.escapeHtml(a.picDepartment) || '-'}</td>
                   <td>${Utils.formatDate(a.completionDate)}</td>
                   <td style="font-weight:600;color:var(--blue-light)">${closingDays} hari</td>
                   <td>

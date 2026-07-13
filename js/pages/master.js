@@ -214,8 +214,18 @@ const MasterPage = {
     MasterPage.refreshTab();
   },
 
+  _countRefs(table, field, value) {
+    return DB.get(table).filter(r => r[field] === value).length;
+  },
+
   deleteBrand(id) {
-    Modal.confirm('Delete Brand', 'Delete this brand? Existing data referencing it will not be affected.', () => {
+    const refs = this._countRefs('outlets','brand',id) + this._countRefs('wbs_cases','brand',id)
+               + this._countRefs('fds_cases','brand',id) + this._countRefs('audit_plannings','brand',id);
+    if (refs > 0) {
+      Toast.error(`Tidak dapat menghapus brand: masih digunakan oleh ${refs} data transaksi. Hapus atau ubah referensi terlebih dahulu.`);
+      return;
+    }
+    Modal.confirm('Delete Brand', 'Delete this brand?', () => {
       DB.delete('brands', id);
       Toast.success('Brand deleted.');
       MasterPage.refreshTab();
@@ -323,6 +333,12 @@ const MasterPage = {
   },
 
   deleteCat(id) {
+    const refs = this._countRefs('wbs_cases','category',id) + this._countRefs('fds_cases','category',id)
+               + this._countRefs('audit_results','category',id);
+    if (refs > 0) {
+      Toast.error(`Tidak dapat menghapus kategori: masih digunakan oleh ${refs} data transaksi. Hapus atau ubah referensi terlebih dahulu.`);
+      return;
+    }
     Modal.confirm('Delete Category', 'Delete this fraud category?', () => {
       DB.delete('fraud_categories', id);
       Toast.success('Category deleted.');
@@ -399,7 +415,7 @@ const MasterPage = {
           <div class="form-group">
             <label class="form-label required">Province</label>
             <select class="form-control" id="ol-prov">
-              ${provinces.map(p=>`<option value="${p.name}" ${o?.province===p.name?'selected':''}>${p.name}</option>`).join('')}
+              ${provinces.map(p=>`<option value="${p.id}" ${o?.province===p.id?'selected':''}>${p.name}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
@@ -453,7 +469,16 @@ const MasterPage = {
   },
 
   deleteOutlet(id) {
-    Modal.confirm('Delete Outlet', 'Delete this outlet from master data?', () => {
+    const outlet = DB.find('outlets', id);
+    if (!outlet) return;
+    const refs = this._countRefs('wbs_cases','outletCode',outlet.code)
+               + this._countRefs('fds_cases','outletCode',outlet.code)
+               + this._countRefs('audit_plannings','outletCode',outlet.code);
+    if (refs > 0) {
+      Toast.error(`Tidak dapat menghapus outlet: masih digunakan oleh ${refs} data transaksi. Hapus atau ubah referensi terlebih dahulu.`);
+      return;
+    }
+    Modal.confirm('Delete Outlet', 'Delete this outlet?', () => {
       DB.delete('outlets', id);
       Toast.success('Outlet deleted.');
       MasterPage.refreshTab();
@@ -520,6 +545,12 @@ const MasterPage = {
   },
 
   deleteProvince(id) {
+    const refs = this._countRefs('outlets','province',id) + this._countRefs('wbs_cases','province',id)
+               + this._countRefs('fds_cases','province',id) + this._countRefs('audit_plannings','province',id);
+    if (refs > 0) {
+      Toast.error(`Tidak dapat menghapus provinsi: masih digunakan oleh ${refs} data transaksi. Hapus atau ubah referensi terlebih dahulu.`);
+      return;
+    }
     Modal.confirm('Delete Province', 'Delete this province?', () => {
       DB.delete('provinces', id);
       Toast.success('Province deleted.');
@@ -604,6 +635,12 @@ const MasterPage = {
   },
 
   deleteDept(id) {
+    const refs = this._countRefs('users','department',id) + this._countRefs('auditors','department',id)
+               + this._countRefs('audit_plannings','department',id) + this._countRefs('audit_actions','picDepartment',id);
+    if (refs > 0) {
+      Toast.error(`Tidak dapat menghapus departemen: masih digunakan oleh ${refs} data transaksi. Hapus atau ubah referensi terlebih dahulu.`);
+      return;
+    }
     Modal.confirm('Delete Department', 'Delete this department?', () => {
       DB.delete('departments', id);
       Toast.success('Department deleted.');

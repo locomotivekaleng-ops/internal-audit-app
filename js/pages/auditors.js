@@ -20,7 +20,7 @@ const AuditorsPage = {
 
   buildHtml() {
     const auditors = DB.get('auditors');
-    const depts    = ['Store Audit', 'Corporate Audit', 'Business Process Improvement'];
+    const depts    = DB.get('departments');
     const plannings = DB.get('audit_plannings');
 
     const filtered = auditors.filter(a => {
@@ -35,9 +35,9 @@ const AuditorsPage = {
     // Stats per dept
     const deptStats = depts.map(d => ({
       dept: d,
-      count: auditors.filter(a => a.department === d && a.status === 'active').length,
+      count: auditors.filter(a => a.department === d.id && a.status === 'active').length,
       cases: (() => {
-        const deptAuditorIds = new Set(auditors.filter(a => a.department === d).map(a => a.id));
+        const deptAuditorIds = new Set(auditors.filter(a => a.department === d.id).map(a => a.id));
         return plannings.filter(p => deptAuditorIds.has(p.leadAuditor)).length;
       })()
     }));
@@ -58,7 +58,7 @@ const AuditorsPage = {
       <div class="kpi-grid kpi-grid-3">
         ${deptStats.map((d,i) => `
           <div class="kpi-card ${['blue','green','purple'][i]}">
-            <div class="kpi-label">${d.dept}</div>
+            <div class="kpi-label">${d.dept.name}</div>
             <div class="kpi-value">${d.count}</div>
             <div class="kpi-sub">${d.cases} cases assigned</div>
           </div>`).join('')}
@@ -68,7 +68,7 @@ const AuditorsPage = {
       <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)">
         <div class="dept-tabs">
           <div class="dept-tab ${AuditorsPage.activeDept==='all'?'active':''}" data-dept="all">All Departments</div>
-          ${depts.map(d => `<div class="dept-tab ${AuditorsPage.activeDept===d?'active':''}" data-dept="${d}">${d}</div>`).join('')}
+          ${depts.map(d => `<div class="dept-tab ${AuditorsPage.activeDept===d.id?'active':''}" data-dept="${d.id}">${d.name}</div>`).join('')}
         </div>
         <div class="search-input-wrapper">
           <i data-lucide="search"></i>
@@ -106,7 +106,7 @@ const AuditorsPage = {
         <div class="auditor-avatar-large" style="background:linear-gradient(135deg,${colors[colorIdx]},${colors[(colorIdx+2)%colors.length]})">${initials}</div>
         <div class="card-name">${a.name}</div>
         <div class="card-title">${a.title}</div>
-        <div class="card-dept"><span class="badge ${a.department==='Store Audit'?'badge-blue':a.department==='Corporate Audit'?'badge-green':'badge-purple'}" style="font-size:9px">${a.department}</span></div>
+        <div class="card-dept"><span class="badge ${(()=>{const dn=Utils.getDeptName(a.department);return dn==='Store Audit'?'badge-blue':dn==='Corporate Audit'?'badge-green':'badge-purple'})()}" style="font-size:9px">${Utils.getDeptName(a.department)}</span></div>
         ${a.status === 'inactive' ? '<div style="text-align:center;margin-top:4px"><span class="badge badge-red">Inactive</span></div>' : ''}
         <div class="card-stats">
           <div class="auditor-stat">
@@ -203,7 +203,7 @@ const AuditorsPage = {
         <h4 style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:var(--space-3)">Recent Cases</h4>
         <div class="data-table-wrapper"><table class="data-table"><thead><tr><th>No. Laporan</th><th>Outlet</th><th>Total Loss</th><th>Status</th></tr></thead><tbody>
         ${cases.slice(0,5).map(p=>`<tr>
-          <td class="col-bold">${p.reportNo}</td><td>${p.outletName||p.outletCode}</td>
+          <td class="col-bold">${p.reportNo}</td><td>${Utils.getOutletName(p.outletCode)||p.outletCode}</td>
           <td class="text-red">Rp ${Utils.formatIDR(DB.get('audit_results').filter(r=>r.planningId===p.id).reduce((s,r)=>s+(r.totalLoss||0),0))}</td><td>${Utils.statusBadge(p.status)}</td>
         </tr>`).join('')}
         </tbody></table></div>` : ''}
@@ -221,7 +221,7 @@ const AuditorsPage = {
   _openModal(a) {
     const isEdit = !!a;
     const users = DB.get('users');
-    const depts = ['Store Audit', 'Corporate Audit', 'Business Process Improvement'];
+    const depts = DB.get('departments');
 
     Modal.open(`
       <div class="modal-header">
@@ -245,7 +245,7 @@ const AuditorsPage = {
           <div class="form-group">
             <label class="form-label required">Department</label>
             <select class="form-control" id="af-dept">
-              ${depts.map(d=>`<option value="${d}" ${a?.department===d?'selected':''}>${d}</option>`).join('')}
+              ${depts.map(d=>`<option value="${d.id}" ${a?.department===d.id?'selected':''}>${d.name}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
@@ -306,6 +306,11 @@ const AuditorsPage = {
   },
 
   deleteAuditor(id) {
+    const refs = DB.get('audit_plannings').filter(p => p.leadAuditor === id || (p.auditorTeam || []).includes(id)).length;
+    if (refs > 0) {
+      Toast.error(`Tidak dapat menghapus auditor: masih menjadi Lead/Team Auditor di ${refs} perencanaan audit. Hapus atau ubah referensi terlebih dahulu.`);
+      return;
+    }
     Modal.confirm('Delete Auditor', 'Are you sure you want to delete this auditor record?', () => {
       DB.delete('auditors', id);
       Toast.success('Auditor deleted.');

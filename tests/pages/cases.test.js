@@ -124,8 +124,8 @@ describe('CasesPage.applyFilters', () => {
     expect(result[0].id).toBe('2');
   });
 
-  it('should filter by search (outletName)', () => {
-    CasesPage.filters.search = 'Outlet 3';
+  it('should filter by search (outletCode)', () => {
+    CasesPage.filters.search = 'OUT003';
     const result = CasesPage.applyFilters(sampleData);
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('3');

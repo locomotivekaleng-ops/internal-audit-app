@@ -62,14 +62,14 @@ const ReportsPage = {
       },
       fetchRows(d, self) {
         const planMap = Object.fromEntries(d.plannings.map(p => [p.id, p]));
-        let list = self._applySearch(d.plannings, ['reportNo','outletCode','outletName','brand','department','leadAuditor']);
+        let list = self._applySearch(d.plannings, ['reportNo','outletCode','brand','department','leadAuditor']);
         return list.map((p,i) => ({
           no: i+1, reportNo: p.reportNo, planningDate: p.planningDate,
           trigger: p.trigger||'', triggerRef: p.triggerRef||'',
-          brand: p.brand, outlet: p.outletCode+' '+ (p.outletName||''),
-          province: p.province||'', outletManager: p.outletManager||'',
+          brand: p.brand, outlet: p.outletCode+' '+ (Utils.getOutletName(p.outletCode)||''),
+          province: Utils.getProvName(p.province)||'', outletManager: p.outletManager||'',
           multiUnitManager: p.multiUnitManager||'', areaManager: p.areaManager||'',
-          distrikManager: p.distrikManager||'', department: p.department||'',
+          distrikManager: p.distrikManager||'', department: Utils.getDeptName(p.department)||'',
           auditType: p.auditType||'', leadAuditor: self._resolveAuditor(p.leadAuditor),
           auditDateFrom: p.auditDateFrom||'', auditDateTo: p.auditDateTo||'',
           scope: p.scope||'', status: p.status||'',
@@ -110,7 +110,7 @@ const ReportsPage = {
           return {
             no: i+1, reportNo: p.reportNo||'', findingNo: r.findingNo,
             findingTitle: r.findingTitle, findingDate: r.findingDate||'',
-            category: r.category, nature: r.nature, severity: r.severity,
+            category: Utils.getCatName(r.category), nature: r.nature, severity: r.severity,
             totalLoss: Number(r.totalLoss||0).toLocaleString('en-US'), description: r.description||'',
             status: r.status||'', fraudsterName: r.fraudsterName||'',
             fraudsterNik: r.fraudsterNik||'', fraudsterPosition: r.fraudsterPosition||'',
@@ -357,8 +357,8 @@ const ReportsPage = {
           return {
             no: i+1, fraudsterName: r.fraudsterName, fraudsterNik: r.fraudsterNik||'',
             fraudsterPosition: r.fraudsterPosition||'', findingNo: r.findingNo,
-            reportNo: p.reportNo||'', outlet: (p.outletCode||'')+' '+(p.outletName||''),
-            brand: p.brand||'', category: r.category, totalLoss: Number(r.totalLoss||0).toLocaleString('en-US'),
+            reportNo: p.reportNo||'', outlet: (p.outletCode||'')+' '+(Utils.getOutletName(p.outletCode)||''),
+            brand: (Utils.getBrandName(p.brand)||''), category: Utils.getCatName(r.category), totalLoss: Number(r.totalLoss||0).toLocaleString('en-US'),
             status: r.status||'',
           };
         });
@@ -392,11 +392,11 @@ const ReportsPage = {
         d.fraudResults.forEach(r => {
           const d2 = Utils.parseLocalDate(r.findingDate);
           const key = `${d2.getFullYear()}|${d2.getMonth()+1}|${r.category}`;
-          if (!groups[key]) groups[key] = { year: d2.getFullYear(), month: d2.getMonth()+1, category: r.category||'-', count: 0, loss: 0 };
+          if (!groups[key]) groups[key] = { year: d2.getFullYear(), month: d2.getMonth()+1, category: Utils.getCatName(r.category)||'-', count: 0, loss: 0 };
           groups[key].count++;
           groups[key].loss += r.totalLoss||0;
         });
-        const sorted = Object.values(groups).sort((a,b)=>a.year-b.year||a.month-b.month||a.category.localeCompare(b.category));
+        const sorted = Object.values(groups).sort((a,b)=>a.year-b.year||a.month-b.month||Utils.getCatName(a.category).localeCompare(Utils.getCatName(b.category)));
         return sorted.map((g,i) => ({ no: i+1, year: g.year, month: g.month, category: g.category, count: g.count, totalLoss: Number(g.loss).toLocaleString('en-US') }));
       },
       exportCSV() { ReportsPage._exportTrendFraud(); },
@@ -441,8 +441,8 @@ const ReportsPage = {
           const oActions = DB.get('audit_actions').filter(a=>oResultIds.includes(a.resultId));
           const recovery = oActions.filter(a=>a.status==='Closed').reduce((s,a)=>s+(a.recovery||0),0);
           return {
-            no: i+1, outlet: (o.outletCode||'')+' '+(o.outletName||''),
-            brand: o.brand||'', province: o.province||'',
+            no: i+1, outlet: (o.outletCode||'')+' '+(Utils.getOutletName(o.outletCode)||''),
+            brand: Utils.getBrandName(o.brand)||'', province: Utils.getProvName(o.province)||'',
             jmlPlanning: outletPlans.length, jmlTemuan: outletResults.length,
             fraud, admin,
             totalLoss: Number(totalLoss).toLocaleString('en-US'),
@@ -585,8 +585,8 @@ const ReportsPage = {
           const p = planMap[c.linkedPlanningId]||{};
           rows.push({
             no: i+1, caseNo: c.caseNo, date: c.reportDate||'', type: 'WBS',
-            outlet: (c.outletCode||'')+' '+(c.outletName||''),
-            brand: c.brand||'', category: c.category||'',
+            outlet: (c.outletCode||'')+' '+(Utils.getOutletName(c.outletCode)||''),
+            brand: Utils.getBrandName(c.brand)||'', category: Utils.getCatName(c.category)||'',
             caseStatus: c.status||'', planningNo: p.reportNo||'',
             planningDate: p.planningDate||'', planningStatus: p.status||'',
           });
@@ -595,8 +595,8 @@ const ReportsPage = {
           const p = planMap[c.linkedPlanningId]||{};
           rows.push({
             no: rows.length+1, caseNo: c.caseNo, date: c.detectionDate||'', type: 'FDS',
-            outlet: (c.outletCode||'')+' '+(c.outletName||''),
-            brand: c.brand||'', category: c.category||'',
+            outlet: (c.outletCode||'')+' '+(Utils.getOutletName(c.outletCode)||''),
+            brand: Utils.getBrandName(c.brand)||'', category: Utils.getCatName(c.category)||'',
             caseStatus: c.status||'', planningNo: p.reportNo||'',
             planningDate: p.planningDate||'', planningStatus: p.status||'',
           });
@@ -722,8 +722,8 @@ const ReportsPage = {
     const triggers = [...new Set(plannings.map(p => p.trigger).filter(Boolean))].sort();
     const auditorIds = [...new Set(plannings.map(p => p.leadAuditor).filter(Boolean))];
     const auditors = auditorIds.map(id => {
-      const u = DB.find('users', id);
-      return { id, name: u ? u.name : id };
+      const a = DB.find('auditors', id);
+      return { id, name: a ? a.name : id };
     }).sort((a,b) => a.name.localeCompare(b.name));
     const hasFilters = Object.values(f).some(v => v !== '');
 
@@ -744,7 +744,7 @@ const ReportsPage = {
           </select>
           <select class="form-control" data-filter="department">
             <option value="">Semua Dept</option>
-            ${depts.map(d => `<option value="${d}" ${f.department===d?'selected':''}>${d}</option>`).join('')}
+            ${depts.map(d => `<option value="${d}" ${f.department===d?'selected':''}>${Utils.getDeptName(d)}</option>`).join('')}
           </select>
           <select class="form-control" data-filter="auditor">
             <option value="">Semua Auditor</option>
@@ -863,11 +863,11 @@ const ReportsPage = {
     if (f.search) chips.push({ key:'search', label:`Cari: "${f.search.length > 30 ? f.search.slice(0,30)+'...' : f.search}"` });
     if (f.dateFrom) chips.push({ key:'dateFrom', label:`Dari: ${f.dateFrom}` });
     if (f.dateTo) chips.push({ key:'dateTo', label:`Sampai: ${f.dateTo}` });
-    if (f.brand) chips.push({ key:'brand', label:`Brand: ${brands[f.brand]||f.brand}` });
-    if (f.department) chips.push({ key:'department', label:`Dept: ${f.department}` });
+    if (f.brand) chips.push({ key:'brand', label:`Brand: ${Utils.getBrandName(f.brand)||f.brand}` });
+    if (f.department) chips.push({ key:'department', label:`Dept: ${Utils.getDeptName(f.department)}` });
     if (f.auditor) {
-      const u = DB.find('users', f.auditor);
-      chips.push({ key:'auditor', label:`Auditor: ${u?u.name:f.auditor}` });
+      const a = DB.find('auditors', f.auditor);
+      chips.push({ key:'auditor', label:`Auditor: ${a?a.name:f.auditor}` });
     }
     if (f.trigger) chips.push({ key:'trigger', label:`Trigger: ${f.trigger}` });
     if (!chips.length) return '';
@@ -944,10 +944,10 @@ const ReportsPage = {
     }));
   },
 
-  _resolveAuditor(userId) {
-    if (!userId) return '-';
-    const u = DB.find('users', userId);
-    return u ? u.name : userId;
+  _resolveAuditor(auditorId) {
+    if (!auditorId) return '-';
+    const a = DB.find('auditors', auditorId);
+    return a ? a.name : auditorId;
   },
 
   _getColumns(reportId) {
@@ -1083,15 +1083,15 @@ const ReportsPage = {
   // ─── Legacy Export Methods (kept for template references) ───
   _exportPlanning() {
     const data = ReportsPage._filteredData();
-    const list = ReportsPage._applySearch(data.plannings, ['reportNo','outletCode','outletName','brand','department','leadAuditor']);
+    const list = ReportsPage._applySearch(data.plannings, ['reportNo','outletCode','brand','department','leadAuditor']);
     const headers = ['No. Laporan','Tgl Planning','Trigger','Ref Trigger','Brand','Outlet','Provinsi',
       'Outlet Manager','Multi Unit Manager','Area Manager','Distrik Manager',
       'Departemen','Tipe Audit','Lead Auditor','Tgl Mulai','Tgl Selesai','Scope','Status'];
     const rows = list.map(p => [
       p.reportNo, p.planningDate, p.trigger||'', p.triggerRef||'',
-      p.brand, `${p.outletCode} ${p.outletName||''}`, p.province||'',
+      p.brand, `${p.outletCode} ${Utils.getOutletName(p.outletCode)||''}`, Utils.getProvName(p.province)||'',
       p.outletManager||'', p.multiUnitManager||'', p.areaManager||'', p.distrikManager||'',
-      p.department||'', p.auditType||'', ReportsPage._resolveAuditor(p.leadAuditor),
+      Utils.getDeptName(p.department)||'', p.auditType||'', ReportsPage._resolveAuditor(p.leadAuditor),
       p.auditDateFrom||'', p.auditDateTo||'', p.scope||'', p.status||'',
     ]);
     ReportsPage._downloadCSV('Perencanaan_Audit', headers, rows);
@@ -1105,7 +1105,7 @@ const ReportsPage = {
       'Severity','Total Loss','Deskripsi','Status','Fraudster Name','Fraudster NIK','Fraudster Jabatan'];
     const rows = list.map(r => {
       const p = planMap[r.planningId]||{};
-      return [p.reportNo||'', r.findingNo, r.findingTitle, r.findingDate||'', r.category,
+      return [p.reportNo||'', r.findingNo, r.findingTitle, r.findingDate||'', Utils.getCatName(r.category),
         r.nature, r.severity, r.totalLoss||0, r.description||'', r.status||'',
         r.fraudsterName||'', r.fraudsterNik||'', r.fraudsterPosition||''];
     });
@@ -1120,7 +1120,7 @@ const ReportsPage = {
     const rows = list.map(r => {
       const p = planMap[r.planningId]||{};
       return [r.fraudsterName, r.fraudsterNik||'', r.fraudsterPosition||'', r.findingNo, p.reportNo||'',
-        `${p.outletCode||''} ${p.outletName||''}`, p.brand||'', r.category, r.totalLoss||0, r.status||''];
+        `${p.outletCode||''} ${Utils.getOutletName(p.outletCode)||''}`, Utils.getBrandName(p.brand)||'', Utils.getCatName(r.category), r.totalLoss||0, r.status||''];
     });
     ReportsPage._downloadCSV('Data_Fraudster', headers, rows);
   },
@@ -1156,7 +1156,7 @@ const ReportsPage = {
       const oResultIds = outletResults.map(r=>r.id);
       const oActions = DB.get('audit_actions').filter(a=>oResultIds.includes(a.resultId));
       const recovery = oActions.filter(a=>a.status==='Closed').reduce((s,a)=>s+(a.recovery||0),0);
-      return [`${o.outletCode} ${o.outletName||''}`, o.brand||'', o.province||'',
+      return [`${o.outletCode} ${Utils.getOutletName(o.outletCode)||''}`, Utils.getBrandName(o.brand)||'', Utils.getProvName(o.province)||'',
         outletPlans.length, outletResults.length, fraud, admin, totalLoss, recovery, Math.max(0,totalLoss-recovery)];
     });
     ReportsPage._downloadCSV('Rekap_per_Outlet', headers, rows);
@@ -1186,7 +1186,7 @@ const ReportsPage = {
     data.fraudResults.forEach(r => {
       const d = Utils.parseLocalDate(r.findingDate);
       const key = d ? `${d.getFullYear()}|${d.getMonth()+1}|${r.category}` : '';
-      if (!groups[key]) groups[key] = { year:d.getFullYear(), month:d.getMonth()+1, category:r.category, count:0, loss:0 };
+      if (!groups[key]) groups[key] = { year:d.getFullYear(), month:d.getMonth()+1, category:Utils.getCatName(r.category), count:0, loss:0 };
       groups[key].count++;
       groups[key].loss += r.totalLoss||0;
     });

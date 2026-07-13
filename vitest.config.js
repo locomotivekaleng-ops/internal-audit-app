@@ -6,4 +6,10 @@ export default defineConfig({
     setupFiles: ['./tests/setup.js'],
     globals: true,
   },
+  esbuild: {
+    target: 'es2022',
+  },
+  optimizeDeps: {
+    disabled: true,
+  },
 });
