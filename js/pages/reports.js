@@ -82,10 +82,11 @@ const ReportsPage = {
       id: 'audit-findings', category: 'audit',
       title: 'Audit Findings', icon: 'alert-triangle',
       description: 'Detail semua temuan audit termasuk informasi fraudster',
-      defaultColumns: ['no','reportNo','findingNo','findingTitle','findingDate','category','nature','severity','totalLoss','status'],
+      defaultColumns: ['no','reportNo','outlet','findingNo','findingTitle','findingDate','category','nature','severity','totalLoss','status'],
       allColumns: [
         { key:'no', label:'#' }, { key:'reportNo', label:'No. Laporan' },
-        { key:'findingNo', label:'No. Temuan' }, { key:'findingTitle', label:'Judul Temuan' },
+        { key:'outlet', label:'Outlet' }, { key:'findingNo', label:'No. Temuan' },
+        { key:'findingTitle', label:'Judul Temuan' },
         { key:'findingDate', label:'Tgl Temuan' }, { key:'category', label:'Kategori' },
         { key:'nature', label:'Nature' }, { key:'severity', label:'Severity' },
         { key:'totalLoss', label:'Total Loss' }, { key:'description', label:'Deskripsi' },
@@ -108,8 +109,8 @@ const ReportsPage = {
         return list.map((r,i) => {
           const p = planMap[r.planningId]||{};
           return {
-            no: i+1, reportNo: p.reportNo||'', findingNo: r.findingNo,
-            findingTitle: r.findingTitle, findingDate: r.findingDate||'',
+            no: i+1, reportNo: p.reportNo||'', outlet: (p.outletCode||'')+' '+(Utils.getOutletName(p.outletCode)||''),
+            findingNo: r.findingNo, findingTitle: r.findingTitle, findingDate: r.findingDate||'',
             category: Utils.getCatName(r.category), nature: r.nature, severity: r.severity,
             totalLoss: Number(r.totalLoss||0).toLocaleString('en-US'), description: r.description||'',
             status: r.status||'', fraudsterName: r.fraudsterName||'',
@@ -125,10 +126,10 @@ const ReportsPage = {
       id: 'aap-register', category: 'followup',
       title: 'AAP Register', icon: 'check-square',
       description: 'Daftar Agreed Action Plans dengan PIC, due date, dan recovery',
-      defaultColumns: ['no','reportNo','findingNo','actionNo','actionTitle','picName','dueDate','target','recovery','unrecovered','outstanding','status'],
+      defaultColumns: ['no','reportNo','outlet','findingNo','actionNo','actionTitle','picName','dueDate','target','recovery','unrecovered','outstanding','status','completedDate'],
       allColumns: [
         { key:'no', label:'#' }, { key:'reportNo', label:'No. Laporan' },
-        { key:'findingNo', label:'No. Temuan' }, { key:'actionNo', label:'No. AAP' },
+        { key:'outlet', label:'Outlet' }, { key:'findingNo', label:'No. Temuan' }, { key:'actionNo', label:'No. AAP' },
         { key:'actionTitle', label:'Judul AAP' }, { key:'picName', label:'PIC' },
         { key:'picDepartment', label:'Departemen' }, { key:'dueDate', label:'Due Date' },
         { key:'target', label:'Target' }, { key:'recovery', label:'Recovery' },
@@ -157,8 +158,8 @@ const ReportsPage = {
           const p = planMap[r.planningId]||{};
           const m = AuditMetrics.getActionMetrics(a);
           return {
-            no: i+1, reportNo: p.reportNo||'', findingNo: r.findingNo||'',
-            actionNo: a.actionNo, actionTitle: a.actionTitle,
+            no: i+1, reportNo: p.reportNo||'', outlet: (p.outletCode||'')+' '+(Utils.getOutletName(p.outletCode)||''),
+            findingNo: r.findingNo||'', actionNo: a.actionNo, actionTitle: a.actionTitle,
             picName: a.picName||'', picDepartment: a.picDepartment||'',
             dueDate: a.dueDate||'', target: Number(m.amount||0).toLocaleString('en-US'), recovery: Number(m.recovery||0).toLocaleString('en-US'),
             unrecovered: Number(m.unrecovered||0).toLocaleString('en-US'), outstanding: Number(m.outstanding||0).toLocaleString('en-US'),
@@ -173,10 +174,10 @@ const ReportsPage = {
       id: 'open-aap', category: 'followup',
       title: 'Open AAP', icon: 'clock',
       description: 'AAP yang masih berstatus Open dan perlu ditindaklanjuti',
-      defaultColumns: ['no','reportNo','actionNo','actionTitle','picName','dueDate','target','outstanding','overdue'],
+      defaultColumns: ['no','reportNo','outlet','actionNo','actionTitle','picName','dueDate','target','outstanding','overdue'],
       allColumns: [
         { key:'no', label:'#' }, { key:'reportNo', label:'No. Laporan' },
-        { key:'findingNo', label:'No. Temuan' }, { key:'actionNo', label:'No. AAP' },
+        { key:'outlet', label:'Outlet' }, { key:'findingNo', label:'No. Temuan' }, { key:'actionNo', label:'No. AAP' },
         { key:'actionTitle', label:'Judul AAP' }, { key:'picName', label:'PIC' },
         { key:'picDepartment', label:'Departemen' }, { key:'dueDate', label:'Due Date' },
         { key:'target', label:'Target' }, { key:'outstanding', label:'Outstanding' },
@@ -207,8 +208,8 @@ const ReportsPage = {
           const overdue = a.dueDate && a.dueDate < today ? 'Ya' : 'Tidak';
           const age = AuditMetrics.getAgingBucket(a);
           return {
-            no: i+1, reportNo: p.reportNo||'', findingNo: r.findingNo||'',
-            actionNo: a.actionNo, actionTitle: a.actionTitle,
+            no: i+1, reportNo: p.reportNo||'', outlet: (p.outletCode||'')+' '+(Utils.getOutletName(p.outletCode)||''),
+            findingNo: r.findingNo||'', actionNo: a.actionNo, actionTitle: a.actionTitle,
             picName: a.picName||'', picDepartment: a.picDepartment||'',
             dueDate: a.dueDate||'', target: Number(m.amount||0).toLocaleString('en-US'), outstanding: Number(m.outstanding||0).toLocaleString('en-US'),
             status: a.status||'', age,
@@ -227,10 +228,10 @@ const ReportsPage = {
       id: 'overdue-aap', category: 'followup',
       title: 'Overdue AAP', icon: 'alert-triangle',
       description: 'AAP yang melewati due date dan belum diselesaikan',
-      defaultColumns: ['no','reportNo','actionNo','actionTitle','picName','dueDate','target','outstanding','daysOverdue'],
+      defaultColumns: ['no','reportNo','outlet','actionNo','actionTitle','picName','dueDate','target','outstanding','daysOverdue'],
       allColumns: [
         { key:'no', label:'#' }, { key:'reportNo', label:'No. Laporan' },
-        { key:'findingNo', label:'No. Temuan' }, { key:'actionNo', label:'No. AAP' },
+        { key:'outlet', label:'Outlet' }, { key:'findingNo', label:'No. Temuan' }, { key:'actionNo', label:'No. AAP' },
         { key:'actionTitle', label:'Judul AAP' }, { key:'picName', label:'PIC' },
         { key:'picDepartment', label:'Departemen' }, { key:'dueDate', label:'Due Date' },
         { key:'target', label:'Target' }, { key:'outstanding', label:'Outstanding' },
@@ -260,8 +261,8 @@ const ReportsPage = {
           const p = planMap[r.planningId]||{};
           const m = AuditMetrics.getActionMetrics(a);
           return {
-            no: i+1, reportNo: p.reportNo||'', findingNo: r.findingNo||'',
-            actionNo: a.actionNo, actionTitle: a.actionTitle,
+            no: i+1, reportNo: p.reportNo||'', outlet: (p.outletCode||'')+' '+(Utils.getOutletName(p.outletCode)||''),
+            findingNo: r.findingNo||'', actionNo: a.actionNo, actionTitle: a.actionTitle,
             picName: a.picName||'', picDepartment: a.picDepartment||'',
             dueDate: a.dueDate||'', target: Number(m.amount||0).toLocaleString('en-US'), outstanding: Number(m.outstanding||0).toLocaleString('en-US'),
             daysOverdue: AuditMetrics.getDaysOverdue(a),
@@ -280,9 +281,10 @@ const ReportsPage = {
       id: 'aap-closing-time', category: 'followup',
       title: 'AAP Closing Time', icon: 'timer',
       description: 'Waktu penyelesaian AAP dari due date hingga closed',
-      defaultColumns: ['no','actionNo','actionTitle','picName','dueDate','completedDate','daysToClose','status'],
+      defaultColumns: ['no','reportNo','outlet','actionNo','actionTitle','picName','dueDate','completedDate','daysToClose','status'],
       allColumns: [
-        { key:'no', label:'#' }, { key:'actionNo', label:'No. AAP' },
+        { key:'no', label:'#' }, { key:'reportNo', label:'No. Laporan' },
+        { key:'outlet', label:'Outlet' }, { key:'actionNo', label:'No. AAP' },
         { key:'actionTitle', label:'Judul AAP' }, { key:'picName', label:'PIC' },
         { key:'picDepartment', label:'Departemen' }, { key:'dueDate', label:'Due Date' },
         { key:'completedDate', label:'Tgl Selesai' }, { key:'daysToClose', label:'Hari' },
@@ -309,7 +311,8 @@ const ReportsPage = {
           const p = planMap[r.planningId]||{};
           const days = AuditMetrics.getDaysOverdue(a);
           return {
-            no: i+1, actionNo: a.actionNo, actionTitle: a.actionTitle,
+            no: i+1, reportNo: p.reportNo||'', outlet: (p.outletCode||'')+' '+(Utils.getOutletName(p.outletCode)||''),
+            actionNo: a.actionNo, actionTitle: a.actionTitle,
             picName: a.picName||'', picDepartment: a.picDepartment||'',
             dueDate: a.dueDate||'', completedDate: a.completedDate||'',
             daysToClose: days < 0 ? 0 : days,
@@ -740,7 +743,7 @@ const ReportsPage = {
           <input type="date" class="form-control" id="rp-date-to" value="${f.dateTo}" title="Sampai" />
           <select class="form-control" data-filter="brand">
             <option value="">Semua Brand</option>
-            ${brands.map(b => `<option value="${b.id}" ${f.brand===b.id?'selected':''}>${b.name}</option>`).join('')}
+            ${brands.map(b => `<option value="${b.code}" ${f.brand===b.code?'selected':''}>${b.name}</option>`).join('')}
           </select>
           <select class="form-control" data-filter="department">
             <option value="">Semua Dept</option>
@@ -858,7 +861,7 @@ const ReportsPage = {
   // ─── Filter chips ───
   _buildFilterChips() {
     const f = ReportsPage.filters;
-    const brands = Object.fromEntries(DB.get('brands').map(b => [b.id, b.name]));
+    const brands = Object.fromEntries(DB.get('brands').map(b => [b.code, b.name]));
     const chips = [];
     if (f.search) chips.push({ key:'search', label:`Cari: "${f.search.length > 30 ? f.search.slice(0,30)+'...' : f.search}"` });
     if (f.dateFrom) chips.push({ key:'dateFrom', label:`Dari: ${f.dateFrom}` });

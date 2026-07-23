@@ -8,7 +8,7 @@ const Router = {
   _loaded: {},
 
   _loadScript(name) {
-    if (Router._loaded[name]) return Promise.resolve();
+    if (Router._loaded[name]) return Router._loaded[name];
     Router._loaded[name] = new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.src = `js/pages/${name}.js`;
@@ -59,6 +59,9 @@ const Router = {
     Router.dispatch(route);
   },
 
+  // Pages that require server-side permission verification
+  _strictPages: ['users', 'master', 'settings'],
+
   async dispatch(route) {
     if (route !== 'login' && !Perms.canRead(route)) {
       Toast?.error('Anda tidak memiliki akses ke halaman ini.');
@@ -66,13 +69,28 @@ const Router = {
       Router.navigate(fallback, true);
       return;
     }
+
+    // Server-side verification for sensitive pages
+    if (Router._strictPages.includes(route)) {
+      try {
+        const allowed = await Perms.checkServer(route, 'read');
+        if (!allowed) {
+          Toast?.error('Access denied — insufficient permissions.', 'Forbidden');
+          Router.navigate('dashboard', true);
+          return;
+        }
+      } catch (err) {
+        console.warn('[Router] Server-side check unavailable for', route, err);
+      }
+    }
+
     const handler = Router.routes[route];
     if (handler) {
       await Router._loadScript(route);
       Charts.destroyAll();
       Router._saveScroll(route);
       Router._showLoading();
-      requestAnimationFrame(() => {
+      setTimeout(() => {
         try {
           handler();
         } catch (e) {

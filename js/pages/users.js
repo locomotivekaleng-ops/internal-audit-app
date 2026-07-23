@@ -1,23 +1,51 @@
 /* ============================================================
    USER MANAGEMENT PAGE (Head & Super Admin only)
+   Uses profiles table for listing, auth admin API for CUD
    ============================================================ */
 
 const UsersPage = {
+  _profiles: [],
+
+  async refresh() {
+    await UsersPage._loadProfiles();
+    document.getElementById('page-content').innerHTML = UsersPage.buildHtml();
+    UsersPage.afterRender();
+    if (window.lucide) lucide.createIcons();
+  },
+
+  async _loadProfiles() {
+    try {
+      const data = await Supabase.getAll('profiles');
+      UsersPage._profiles = data || [];
+    } catch (e) {
+      console.error('Failed to load profiles:', e);
+      UsersPage._profiles = [];
+    }
+  },
+
   render() {
     if (!Auth.requireAuth()) return;
     if (!Auth.isHead()) { Router.navigate('dashboard'); return; }
     Components.renderAppShell(
       'User Management',
       'Manage system accounts and permissions',
-      UsersPage.buildHtml(),
+      '<div id="users-loading" style="text-align:center;padding:40px;color:var(--text-muted)">Loading users...</div>',
       'users'
     );
     UsersPage._pageWired = false;
+    UsersPage._init();
+  },
+
+  async _init() {
+    await UsersPage._loadProfiles();
+    const content = document.getElementById('page-content');
+    if (content) content.innerHTML = UsersPage.buildHtml();
     UsersPage.afterRender();
+    if (window.lucide) lucide.createIcons();
   },
 
   buildHtml() {
-    const users = DB.get('users');
+    const users = UsersPage._profiles;
     const depts = DB.get('departments') || [];
 
     const roleCount = {
@@ -74,13 +102,13 @@ const UsersPage = {
                     <td class="col-bold">
                       <div style="display:flex;align-items:center;gap:var(--space-2)">
                         <div class="user-avatar" style="width:28px;height:28px;font-size:10px">${Utils.getInitials(u.name)}</div>
-                        ${u.name}
+                        ${Utils.escapeHtml(u.name)}
                       </div>
                     </td>
-                    <td class="col-mono">${u.username}</td>
-                    <td style="font-size:11px">${u.email||'-'}</td>
+                    <td class="col-mono">${Utils.escapeHtml(u.username)}</td>
+                    <td style="font-size:11px">${Utils.escapeHtml(u.email)||'-'}</td>
                     <td>${UsersPage.roleBadge(u.role)}</td>
-                    <td style="font-size:11px;color:var(--text-muted)">${Utils.getDeptName(u.department)||'—'}</td>
+                    <td style="font-size:11px;color:var(--text-muted)">${Utils.escapeHtml(Utils.getDeptName(u.department))||'—'}</td>
                     <td>${Utils.statusBadge(u.status)}</td>
                     <td style="font-size:11px">${Utils.formatDate(u.createdAt)}</td>
                     <td>
@@ -88,7 +116,7 @@ const UsersPage = {
                         ${Auth.isSuperAdmin() ? `
                           <button class="btn btn-icon btn-secondary btn-sm" data-id="${u.id}" data-action="edit-user" title="Edit"><i data-lucide="pencil"></i></button>
                           <button class="btn btn-icon btn-secondary btn-sm" data-id="${u.id}" data-action="reset-user" title="Reset Password"><i data-lucide="key"></i></button>
-                          ${u.id !== 'usr_superadmin' ? `<button class="btn btn-icon btn-danger btn-sm" data-id="${u.id}" data-action="delete-user" title="Delete"><i data-lucide="trash-2"></i></button>` : ''}
+                          ${u.username !== 'superadmin' ? `<button class="btn btn-icon btn-danger btn-sm" data-id="${u.id}" data-action="delete-user" title="Delete"><i data-lucide="trash-2"></i></button>` : ''}
                         ` : `<span class="text-muted" style="font-size:11px">View only</span>`}
                       </div>
                     </td>
@@ -108,13 +136,7 @@ const UsersPage = {
       division:   ['badge-purple', 'Auditee / Other Dept'],
     };
     const [cls, label] = map[role] || ['badge-gray', role];
-    return `<span class="badge ${cls}">${label}</span>`;
-  },
-
-  refresh() {
-    document.getElementById('page-content').innerHTML = UsersPage.buildHtml();
-    UsersPage.afterRender();
-    if (window.lucide) lucide.createIcons();
+    return `<span class="badge ${cls}">${Utils.escapeHtml(label)}</span>`;
   },
 
   afterRender() {
@@ -132,7 +154,7 @@ const UsersPage = {
   },
 
   openAddModal() { UsersPage._openModal(null); },
-  openEditModal(id) { UsersPage._openModal(DB.find('users', id)); },
+  openEditModal(id) { UsersPage._openModal(UsersPage._profiles.find(p => p.id === id) || null); },
 
   _openModal(u) {
     const isEdit = !!u;
@@ -175,7 +197,7 @@ const UsersPage = {
             <label class="form-label required" id="dept-label">Department</label>
             <select class="form-control" id="uf-dept">
               <option value="">-- Pilih Department --</option>
-              ${depts.map(d=>`<option value="${d.id}" ${u?.department===d.id?'selected':''}>${d.name}</option>`).join('')}
+              ${depts.map(d=>`<option value="${d.id}" ${u?.department===d.id?'selected':''}>${Utils.escapeHtml(d.name)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
@@ -259,7 +281,7 @@ const UsersPage = {
     }
   },
 
-  saveUser(id) {
+  async saveUser(id) {
     const isEdit = !!id;
     const name    = document.getElementById('uf-name').value;
     const username= document.getElementById('uf-username').value;
@@ -272,20 +294,34 @@ const UsersPage = {
     if (role === 'division' && !dept) { Toast.error('Department wajib diisi untuk role Divisi.'); return; }
 
     // Check username uniqueness
-    const existing = DB.get('users').find(u => u.username === username && u.id !== id);
+    const existing = UsersPage._profiles.find(u => u.username === username && u.id !== id);
     if (existing) { Toast.error('Username already taken.'); return; }
 
-    if (isEdit) {
-      DB.update('users', id, { name, email, role, department: dept, status });
-      Toast.success('User account updated.');
-    } else {
-      const password = document.getElementById('uf-password')?.value;
-      if (!password) { Toast.error('Password is required.'); return; }
-      DB.insert('users', { username, name, email, password, role, department: dept, status });
-      Toast.success('User account created.');
+    try {
+      if (isEdit) {
+        const profileEmail = email || username + '@internal-audit.app';
+        await Supabase.update('profiles', id, { name, email: profileEmail, role, department: dept, status });
+        DB.updateLocal('profiles', id, { name, email: profileEmail, role, department: dept, status });
+        Toast.success('User account updated.');
+      } else {
+        const password = document.getElementById('uf-password')?.value;
+        if (!password) { Toast.error('Password is required.'); return; }
+        if (password.length < 8) { Toast.error('Password must be at least 8 characters.'); return; }
+        const userEmail = username + '@internal-audit.app';
+        const result = await Supabase.adminCreateUser(userEmail, password, { name, role });
+        const newId = result.id;
+        await Supabase.update('profiles', newId, {
+          name, email: userEmail, role, department: dept, status
+        });
+        const freshProfiles = await Supabase.getAll('profiles');
+        DB.set('profiles', freshProfiles);
+        Toast.success('User account created.');
+      }
+      Modal.close();
+      await UsersPage.refresh();
+    } catch (e) {
+      Toast.error(e.message || 'Failed to save user.');
     }
-    Modal.close();
-    UsersPage.refresh();
   },
 
   openResetModal(id) {
@@ -314,25 +350,36 @@ const UsersPage = {
     PageLifecycle.on('users-reset-btn', 'click', () => UsersPage.resetPassword(id));
   },
 
-  resetPassword(id) {
+  async resetPassword(id) {
     const pass    = document.getElementById('rp-pass').value;
     const confirm = document.getElementById('rp-confirm').value;
     if (!pass)         { Toast.error('Enter new password.'); return; }
     if (pass !== confirm) { Toast.error('Passwords do not match.'); return; }
-    if (pass.length < 6)  { Toast.error('Password must be at least 6 characters.'); return; }
-    DB.update('users', id, { password: pass });
-    Toast.success('Password reset successfully.');
-    Modal.close();
+    if (pass.length < 8)  { Toast.error('Password must be at least 8 characters.'); return; }
+
+    try {
+      await Supabase.adminResetPassword(id, pass);
+      Toast.success('Password reset successfully.');
+      Modal.close();
+    } catch (e) {
+      Toast.error(e.message || 'Failed to reset password.');
+    }
   },
 
-  deleteUser(id) {
-    if (id === 'usr_superadmin') { Toast.error('Cannot delete the main admin account.'); return; }
+  async deleteUser(id) {
+    const user = UsersPage._profiles.find(p => p.id === id);
+    if (!user) return;
+    if (user.username === 'superadmin') { Toast.error('Cannot delete the main admin account.'); return; }
     const session = Auth.getSession();
     if (session?.userId === id) { Toast.error('Cannot delete your own account.'); return; }
-    Modal.confirm('Delete User', 'Delete this user account? This cannot be undone.', () => {
-      DB.delete('users', id);
-      Toast.success('User deleted.');
-      UsersPage.refresh();
+    Modal.confirm('Delete User', 'Delete this user account? This cannot be undone.', async () => {
+      try {
+        await Supabase.adminDeleteUser(id);
+        Toast.success('User deleted.');
+        await UsersPage.refresh();
+      } catch (e) {
+        Toast.error(e.message || 'Failed to delete user.');
+      }
     });
   }
 };

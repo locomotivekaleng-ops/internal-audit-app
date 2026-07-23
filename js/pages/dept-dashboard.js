@@ -46,7 +46,8 @@ const DeptDashboardPage = {
   },
 
   buildHtml(dept, isDiv) {
-    const actions = DB.get('audit_actions').filter(a => a.picDepartment === dept);
+    const deptName = Utils.getDeptName(dept);
+    const actions = DB.get('audit_actions').filter(a => a.picDepartment === deptName);
     const openActions = actions.filter(a => a.status === 'Open');
     const closedActions = actions.filter(a => a.status === 'Closed');
 
@@ -108,7 +109,7 @@ const DeptDashboardPage = {
                       const amount = Number(a.amount) || 0;
                       const outstanding = amount - (Number(a.recovery) || 0) - (Number(a.unrecovered) || 0);
                       return `<tr>
-                        <td class="col-mono" style="cursor:pointer;color:var(--blue-light);font-size:11px" data-action="view-planning" data-planning-id="${a.planningId}" data-tab="actions">${a.actionNo}</td>
+                        <td class="col-mono" style="cursor:pointer;color:var(--blue-light);font-size:11px" data-action="view-planning" data-planning-id="${a.planningId}" data-tab="actions">${Utils.escapeHtml(a.actionNo)}</td>
                         <td style="max-width:220px;font-size:12px">${Utils.escapeHtml(a.actionTitle)}</td>
                         <td style="font-size:11px">${Utils.escapeHtml(a.picName)}</td>
                         <td style="font-size:11px;white-space:nowrap;${isOverdue ? 'color:#ef4444;font-weight:600' : ''}">
@@ -117,7 +118,7 @@ const DeptDashboardPage = {
                         </td>
                         <td style="font-size:11px;font-weight:600">Rp ${Utils.formatIDR(amount)}</td>
                         <td style="font-size:11px;font-weight:600;color:#f59e0b">Rp ${Utils.formatIDR(outstanding)}</td>
-                        <td><span class="badge ${isOverdue ? 'badge-red' : 'badge-amber'}">${a.status}${isOverdue ? ' OVERDUE' : ''}</span></td>
+                        <td><span class="badge ${isOverdue ? 'badge-red' : 'badge-amber'}">${Utils.escapeHtml(a.status)}${isOverdue ? ' OVERDUE' : ''}</span></td>
                       </tr>`;
                     }).join('')}
                   </tbody>
@@ -154,7 +155,7 @@ const DeptDashboardPage = {
                       const unrecovered = Number(a.unrecovered) || 0;
                       const outstanding = amount - recovery - unrecovered;
                       return `<tr>
-                      <td class="col-mono" style="cursor:pointer;color:var(--blue-light);font-size:11px" data-action="view-planning" data-planning-id="${a.planningId}" data-tab="actions">${a.actionNo}</td>
+                      <td class="col-mono" style="cursor:pointer;color:var(--blue-light);font-size:11px" data-action="view-planning" data-planning-id="${a.planningId}" data-tab="actions">${Utils.escapeHtml(a.actionNo)}</td>
                       <td style="max-width:220px;font-size:12px">${Utils.escapeHtml(a.actionTitle)}</td>
                       <td style="font-size:11px">${Utils.escapeHtml(a.picName)}</td>
                       <td style="font-size:11px;white-space:nowrap">${Utils.formatDate(a.completionDate)}</td>
@@ -176,9 +177,11 @@ const DeptDashboardPage = {
   afterRender() {
     if (!DeptDashboardPage._pageWired) {
       DeptDashboardPage._pageWired = true;
+      Router._loadScript('cases');
       PageLifecycle.delegate('page-content', {
         click: {
-          '[data-action="view-planning"]': (e, target) => {
+          '[data-action="view-planning"]': async (e, target) => {
+            await Router._loadScript('cases');
             CasesPage?.viewPlanning?.(target.dataset.planningId, target.dataset.tab);
           }
         }

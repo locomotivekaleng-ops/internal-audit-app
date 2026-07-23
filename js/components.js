@@ -47,8 +47,8 @@ const Components = {
             <div class="user-profile">
               <div class="user-avatar">${initials}</div>
               <div class="user-info">
-                <div class="user-name">${session?.name || 'User'}</div>
-                <div class="user-role">${Components.roleLabel(session?.role)} ${session?.department ? '· ' + Utils.getDeptName(session.department) : ''}</div>
+                <div class="user-name">${Utils.escapeHtml(session?.name || 'User')}</div>
+                <div class="user-role">${Utils.escapeHtml(Components.roleLabel(session?.role))} ${session?.department ? '· ' + Utils.escapeHtml(Utils.getDeptName(session.department)) : ''}</div>
               </div>
             </div>
             <button class="btn btn-secondary w-full mt-2" style="font-size:11px;justify-content:center" data-action="logout">
@@ -71,6 +71,11 @@ const Components = {
               <p>${pageSubtitle || ''}</p>
             </div>
             <div class="header-actions">
+              <button class="btn btn-sm btn-secondary" id="sync-btn" data-action="sync-now" title="Sync data to server" style="font-size:11px;gap:4px">
+                <i data-lucide="refresh-cw" style="width:14px;height:14px"></i>
+                <span id="sync-label">Sync</span>
+                <span id="sync-badge" class="sync-badge hidden" style="background:var(--accent);color:#fff;border-radius:50%;min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;padding:0 4px"></span>
+              </button>
               <div style="font-size:11px;color:var(--text-muted);" id="current-datetime"></div>
             </div>
           </header>
@@ -91,6 +96,8 @@ const Components = {
     document.querySelector('[data-action="logout"]')?.addEventListener('click', () => Components.logout());
     document.querySelector('[data-action="toggle-sidebar"]')?.addEventListener('click', () => Components.toggleSidebar());
     document.getElementById('sidebar-backdrop')?.addEventListener('click', () => Components.closeMobileSidebar());
+    document.querySelector('[data-action="sync-now"]')?.addEventListener('click', () => Components.manualSync());
+    if (typeof Components.updateSyncBadge === 'function') Components.updateSyncBadge();
 
     // Sidebar delegation for nav items (rebuilt dynamically)
     document.querySelector('.sidebar-nav')?.addEventListener('click', (e) => {
@@ -173,8 +180,8 @@ const Components = {
     backdrop.classList.remove('visible');
   },
 
-  logout() {
-    Auth.logout();
+  async logout() {
+    await Auth.logout();
     Router.navigate('login');
     Toast.info('You have been signed out.', 'Goodbye!');
   },
@@ -198,7 +205,7 @@ const Components = {
     return filters.map(f => {
       if (f.type === 'select') {
         const opts = f.options.map(o =>
-          `<option value="${o.value}" ${o.selected ? 'selected' : ''}>${o.label}</option>`
+          `<option value="${Utils.escapeHtml(o.value)}" ${o.selected ? 'selected' : ''}>${Utils.escapeHtml(o.label)}</option>`
         ).join('');
         return `<select class="form-control" id="${f.id}" onchange="${f.onChange || ''}" title="${f.label}">
           <option value="">${f.label}</option>${opts}</select>`;
@@ -255,7 +262,7 @@ const Components = {
         }
       });
     }
-    el._onPageChange = new Function('page', onPageChange);
+    el._onPageChange = onPageChange;
     if (window.lucide) lucide.createIcons();
   },
 
@@ -341,6 +348,38 @@ const DataTable = {
    */
   pageItems(data, page, perPage) {
     return data.slice((page - 1) * perPage, page * perPage);
+  },
+
+  async manualSync() {
+    const btn = document.getElementById('sync-btn');
+    const label = document.getElementById('sync-label');
+    if (btn) btn.disabled = true;
+    if (label) label.textContent = 'Syncing…';
+    try {
+      const result = await DB.syncNow();
+      Components.updateSyncBadge();
+      const msg = result.failed > 0
+        ? `Sync selesai: ${result.synced} berhasil, ${result.failed} gagal`
+        : `Semua data tersync (${result.synced} records)`;
+      Toast.success(msg, 'Sync Complete');
+    } catch (e) {
+      Toast.error('Sync gagal: ' + e.message);
+    } finally {
+      if (btn) btn.disabled = false;
+      if (label) label.textContent = 'Sync';
+    }
+  },
+
+  updateSyncBadge() {
+    const count = DB.getUnsyncedCount();
+    const badge = document.getElementById('sync-badge');
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : String(count);
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
   },
 };
 

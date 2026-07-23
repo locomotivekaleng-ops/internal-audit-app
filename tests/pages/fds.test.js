@@ -5,6 +5,7 @@ await import('../../js/utils.js');
 await import('../../js/pages/fds.js');
 
 const CURRENT_YEAR = new Date().getFullYear();
+const CURRENT_MONTH = String(new Date().getMonth() + 1).padStart(2, '0');
 
 beforeEach(() => {
   DB.set('fds_cases', []);
@@ -55,24 +56,24 @@ describe('FDSPage.applyFilters', () => {
 describe('FDSPage._genCaseNo', () => {
   it('should generate next case number based on total count', () => {
     DB.set('fds_cases', [
-      { caseNo: `FDS-${CURRENT_YEAR}-001` },
-      { caseNo: `FDS-${CURRENT_YEAR}-002` },
+      { caseNo: `FDS-${CURRENT_MONTH}-${CURRENT_YEAR}-001` },
+      { caseNo: `FDS-${CURRENT_MONTH}-${CURRENT_YEAR}-002` },
     ]);
     const result = FDSPage._genCaseNo();
-    expect(result).toBe(`FDS-${CURRENT_YEAR}-003`);
+    expect(result).toBe(`FDS-${CURRENT_MONTH}-${CURRENT_YEAR}-003`);
   });
 
   it('should generate first case number when none exist', () => {
     DB.set('fds_cases', []);
     const result = FDSPage._genCaseNo();
-    expect(result).toBe(`FDS-${CURRENT_YEAR}-001`);
+    expect(result).toBe(`FDS-${CURRENT_MONTH}-${CURRENT_YEAR}-001`);
   });
 
   it('should start fresh for new year', () => {
     DB.set('fds_cases', [
-      { caseNo: 'FDS-2023-005' },
+      { caseNo: 'FDS-12-2023-005' },
     ]);
     const result = FDSPage._genCaseNo();
-    expect(result).toBe(`FDS-${CURRENT_YEAR}-001`);
+    expect(result).toBe(`FDS-${CURRENT_MONTH}-${CURRENT_YEAR}-001`);
   });
 });

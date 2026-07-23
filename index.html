@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Internal Audit — Monitoring System</title>
   <meta name="description" content="Internal Audit Monitoring System — Track fraud, WBS, FDS, and audit activities across all departments." />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; base-uri 'self'; form-action 'self';">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -12,10 +13,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 
   <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" integrity="sha384-JUh163oCRItcbPme8pYnROHQMC6fNKTBWtRG3I3I0erJkzNgL7uxKlNwcrcFKeqF" crossorigin="anonymous"></script>
 
   <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://unpkg.com/lucide@1.25.0/dist/umd/lucide.min.js" integrity="sha384-UoXAhqcCCjwD94x4CCSExEHvtO49AfNiY7g/IxDgrPtx4U6o6tvy1cScx9v/RrS9" crossorigin="anonymous"></script>
 
   <!-- Styles -->
   <link rel="stylesheet" href="css/main.css" />
@@ -43,6 +44,7 @@
   </div>
 
   <!-- Scripts -->
+  <script src="js/supabase.js"></script>
   <script src="js/data.js"></script>
   <script src="js/seed.js"></script>
   <script src="js/auth.js"></script>

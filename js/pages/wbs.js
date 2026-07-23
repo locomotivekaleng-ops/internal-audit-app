@@ -196,12 +196,15 @@ const WBSPage = {
 
     // Top 5 category
     const byCat = Utils.groupBy(filtered, 'category');
-    const top5  = Object.entries(byCat).map(([k,v])=>({name:k,count:v.length}))
+    const top5  = Object.entries(byCat)
+      .map(([k,v])=>({name:Utils.getCatName(k)||k, count:v.length}))
       .sort((a,b)=>b.count-a.count).slice(0,5);
-    Charts.hbar('chart-wbs-top5',
-      top5.map(c=>c.name),
-      [{ label:'WBS Report', data:top5.map(c=>c.count),
-         backgroundColor:CHART_COLORS.blue+'cc', borderRadius:4 }]);
+    if (top5.length > 0) {
+      Charts.hbar('chart-wbs-top5',
+        top5.map(c=>c.name),
+        [{ label:'WBS Report', data:top5.map(c=>c.count),
+           backgroundColor:CHART_COLORS.blue+'cc', borderRadius:4 }]);
+    }
 
     // Amount by level
     const levels = ['High','Medium','Low'];
@@ -223,7 +226,7 @@ const WBSPage = {
     Components.renderPagination('wbs-pagination', WBSPage.page,
       Math.max(1, Math.ceil(filtered.length/WBSPage.perPage)),
       filtered.length,
-      `WBSPage.page = page; WBSPage.refresh();`);
+      (page) => { WBSPage.page = page; WBSPage.refresh(); });
     if (window.lucide) lucide.createIcons();
   },
 
@@ -314,10 +317,10 @@ const WBSPage = {
             const pi = document.getElementById('wf-prov');
             if (outlet) {
               if (ni) ni.value = outlet.name || '';
-              if (pi) pi.value = Utils.getProvName(outlet.province) || '';
+              if (pi) { pi.value = Utils.getProvName(outlet.province) || ''; pi.dataset.provinceId = outlet.province || ''; }
             } else {
               if (ni) ni.value = '';
-              if (pi) pi.value = '';
+              if (pi) { pi.value = ''; pi.dataset.provinceId = ''; }
             }
           },
         },
@@ -446,7 +449,7 @@ const WBSPage = {
         <div class="form-grid form-grid-2">
           <div class="form-group">
             <label class="form-label required">Case No</label>
-            <input type="text" class="form-control" id="wf-caseno" value="${Utils.escapeHtml(c?.caseNo||WBSPage._genCaseNo())}" />
+            <input type="text" class="form-control" id="wf-caseno" value="${Utils.escapeHtml(c?.caseNo||'')}" placeholder="Auto" readonly />
           </div>
           <div class="form-group">
             <label class="form-label required">Report Date</label>
@@ -478,7 +481,7 @@ const WBSPage = {
           </div>
           <div class="form-group">
             <label class="form-label required">Province</label>
-            <input type="text" class="form-control" id="wf-prov" value="${Utils.escapeHtml(Utils.getProvName(c?.province||''))}" readonly />
+            <input type="text" class="form-control" id="wf-prov" data-province-id="${c?.province||''}" value="${Utils.escapeHtml(Utils.getProvName(c?.province||''))}" readonly />
           </div>
           <div class="form-group">
             <label class="form-label required">Severity</label>
@@ -513,6 +516,10 @@ const WBSPage = {
           <textarea class="form-control" id="wf-desc" rows="2">${Utils.escapeHtml(c?.description||'')}</textarea>
         </div>
         <div class="form-group mt-4">
+          <label class="form-label">Initial Indication</label>
+          <textarea class="form-control" id="wf-indication" rows="2">${Utils.escapeHtml(c?.initialIndication||'')}</textarea>
+        </div>
+        <div class="form-group mt-4">
           <label class="form-label">Notes</label>
           <textarea class="form-control" id="wf-notes" rows="2">${Utils.escapeHtml(c?.notes||'')}</textarea>
         </div>
@@ -532,60 +539,77 @@ const WBSPage = {
     const list    = document.getElementById('wf-outlet-datalist');
     const input   = document.getElementById('wf-outlet');
     if (!list) return;
-    list.innerHTML = outlets.map(o => `<option value="${o.code} — ${o.name}">`).join('');
+    list.innerHTML = outlets.map(o => `<option value="${Utils.escapeHtml(o.code)} — ${Utils.escapeHtml(o.name)}">`).join('');
     if (input) input.value = '';
     const nameInput = document.getElementById('wf-outletname');
     const provInput = document.getElementById('wf-prov');
     if (nameInput) nameInput.value = '';
-    if (provInput) provInput.value = '';
+    if (provInput) { provInput.value = ''; provInput.dataset.provinceId = ''; }
   },
 
-  _genCaseNo() {
+  _genCaseNo(dateStr) {
     const all = DB.get('wbs_cases');
-    const year = new Date().getFullYear();
-    const yearCases = all.filter(c => c.caseNo && c.caseNo.startsWith(`WBS-${year}-`));
-    const nums = yearCases.map(c => parseInt(c.caseNo.split('-')[2]) || 0);
+    const d = dateStr ? new Date(dateStr) : new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const yearCases = all.filter(c => c.caseNo && /^WBS-\d{2}-\d{4}-\d+$/.test(c.caseNo) && c.caseNo.includes(`-${year}-`));
+    const nums = yearCases.map(c => parseInt(c.caseNo.split('-')[3]) || 0);
     const next = (Math.max(0, ...nums) + 1).toString().padStart(3, '0');
-    return `WBS-${year}-${next}`;
+    return `WBS-${mm}-${year}-${next}`;
   },
 
-  saveCase(id) {
+  async saveCase(id) {
     const outletVal = document.getElementById('wf-outlet')?.value || '';
     const outletCode = outletVal.split(' — ')[0].trim();
+    const reportDate = document.getElementById('wf-date').value;
+
+    let caseNo = document.getElementById('wf-caseno').value;
+    if (!id && !caseNo) {
+      caseNo = WBSPage._genCaseNo(reportDate);
+    }
 
     const data = {
-      caseNo:        document.getElementById('wf-caseno').value,
+      caseNo:        caseNo,
       reportDate:    document.getElementById('wf-date').value,
       category:      document.getElementById('wf-cat').value,
       brand:         document.getElementById('wf-brand').value,
       outletCode:    outletCode,
-      province:      document.getElementById('wf-prov').value,
+      province:      document.getElementById('wf-prov').dataset.provinceId || null,
       severity:      document.getElementById('wf-sev').value,
       status:        document.getElementById('wf-status').value,
       estimatedFraud:Utils.parseFormattedNumber(document.getElementById('wf-fraud').value),
-      assignedTo:    document.getElementById('wf-assign').value,
+      assignedTo:    document.getElementById('wf-assign').value || null,
       resolvedDate:  document.getElementById('wf-resolved').value || null,
       description:   document.getElementById('wf-desc').value,
+      initialIndication: document.getElementById('wf-indication').value,
       notes:         document.getElementById('wf-notes').value,
     };
-    if (!data.caseNo || !data.reportDate || !data.brand || !data.outletCode) {
+    if (!data.caseNo || !data.reportDate || !data.brand || !data.outletCode || !data.category) {
       Toast.error('Please fill all required fields (Case No, Date, Brand, Outlet).'); return;
     }
-    if (id) { DB.update('wbs_cases', id, data); Toast.success('WBS case updated.'); }
-    else     { DB.insert('wbs_cases', data);     Toast.success('WBS case added.'); }
-    Modal.close();
-    WBSPage.refresh();
+    try {
+      if (id) { await DB.update('wbs_cases', id, data); Toast.success('WBS case updated.'); }
+      else     { await DB.insert('wbs_cases', data);     Toast.success('WBS case added.'); }
+      Modal.close();
+      WBSPage.refresh();
+    } catch (e) {
+      Toast.error('Gagal menyimpan WBS case: ' + e.message);
+    }
   },
 
   deleteCase(id) {
-    Modal.confirm('Delete WBS Case', 'This action cannot be undone. Delete this case?', () => {
-      const pl = DB.get('audit_plannings').find(p => p.trigger === 'WBS' && p.triggerRef === id);
-      if (pl) {
-        DB.update('audit_plannings', pl.id, { trigger: 'Direct', triggerRef: null });
+    Modal.confirm('Delete WBS Case', 'This action cannot be undone. Delete this case?', async () => {
+      try {
+        const pl = DB.get('audit_plannings').find(p => p.trigger === 'WBS' && p.triggerRef === id);
+        if (pl) {
+          await DB.update('audit_plannings', pl.id, { trigger: 'Direct', triggerRef: null });
+        }
+        await DB.delete('wbs_cases', id);
+        Toast.success('WBS case deleted.');
+        WBSPage.refresh();
+      } catch (e) {
+        Toast.error('Gagal menghapus WBS case: ' + e.message);
       }
-      DB.delete('wbs_cases', id);
-      Toast.success('WBS case deleted.');
-      WBSPage.refresh();
     });
   }
 };

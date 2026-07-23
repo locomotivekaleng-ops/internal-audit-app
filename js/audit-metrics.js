@@ -139,37 +139,41 @@ const AuditMetrics = {
     return plannings.find(p => p.trigger === triggerType && p.triggerRef === caseId) || null;
   },
 
-  syncPlanningRelationships(planningId, oldTrigger, oldTriggerRef, newTrigger, newTriggerRef) {
-    // Clear old relationship
-    if (oldTrigger === 'WBS' && oldTriggerRef) {
-      const caseObj = DB.find('wbs_cases', oldTriggerRef);
-      if (caseObj && caseObj.linkedPlanningId === planningId) {
-        DB.update('wbs_cases', oldTriggerRef, { linkedPlanningId: null, status: 'New' });
+  async syncPlanningRelationships(planningId, oldTrigger, oldTriggerRef, newTrigger, newTriggerRef) {
+    try {
+      // Clear old relationship
+      if (oldTrigger === 'WBS' && oldTriggerRef) {
+        const caseObj = DB.find('wbs_cases', oldTriggerRef);
+        if (caseObj && caseObj.linkedPlanningId === planningId) {
+          await DB.update('wbs_cases', oldTriggerRef, { linkedPlanningId: null, status: 'New' });
+        }
+      } else if (oldTrigger === 'FDS' && oldTriggerRef) {
+        const caseObj = DB.find('fds_cases', oldTriggerRef);
+        if (caseObj && caseObj.linkedPlanningId === planningId) {
+          await DB.update('fds_cases', oldTriggerRef, { linkedPlanningId: null, status: 'Planned' });
+        }
       }
-    } else if (oldTrigger === 'FDS' && oldTriggerRef) {
-      const caseObj = DB.find('fds_cases', oldTriggerRef);
-      if (caseObj && caseObj.linkedPlanningId === planningId) {
-        DB.update('fds_cases', oldTriggerRef, { linkedPlanningId: null, status: 'Planned' });
-      }
-    }
 
-    // Set new relationship and sync status
-    if (newTrigger === 'WBS' && newTriggerRef) {
-      const pl = DB.find('audit_plannings', planningId);
-      let caseStatus = 'New';
-      if (pl) {
-        if (pl.status === 'Completed') caseStatus = 'Closed';
-        else if (pl.status === 'In Progress') caseStatus = 'In Progress';
+      // Set new relationship and sync status
+      if (newTrigger === 'WBS' && newTriggerRef) {
+        const pl = DB.find('audit_plannings', planningId);
+        let caseStatus = 'New';
+        if (pl) {
+          if (pl.status === 'Completed') caseStatus = 'Closed';
+          else if (pl.status === 'In Progress') caseStatus = 'In Progress';
+        }
+        await DB.update('wbs_cases', newTriggerRef, { linkedPlanningId: planningId, status: caseStatus });
+      } else if (newTrigger === 'FDS' && newTriggerRef) {
+        const pl = DB.find('audit_plannings', planningId);
+        let caseStatus = 'Planned';
+        if (pl) {
+          if (pl.status === 'Completed') caseStatus = 'Closed';
+          else if (pl.status === 'In Progress') caseStatus = 'In Progress';
+        }
+        await DB.update('fds_cases', newTriggerRef, { linkedPlanningId: planningId, status: caseStatus });
       }
-      DB.update('wbs_cases', newTriggerRef, { linkedPlanningId: planningId, status: caseStatus });
-    } else if (newTrigger === 'FDS' && newTriggerRef) {
-      const pl = DB.find('audit_plannings', planningId);
-      let caseStatus = 'Planned';
-      if (pl) {
-        if (pl.status === 'Completed') caseStatus = 'Closed';
-        else if (pl.status === 'In Progress') caseStatus = 'In Progress';
-      }
-      DB.update('fds_cases', newTriggerRef, { linkedPlanningId: planningId, status: caseStatus });
+    } catch (e) {
+      console.warn('[AuditMetrics] syncPlanningRelationships error:', e);
     }
   }
 };

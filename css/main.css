@@ -614,7 +614,7 @@ body {
 }
 
 .data-table {
-  width: 100%;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 12px;
 }
@@ -1026,6 +1026,7 @@ select.form-control {
 .modal-body {
   padding: var(--space-6);
   overflow-y: auto;
+  overflow-x: auto;
   flex: 1;
 }
 
@@ -1841,4 +1842,22 @@ select.form-control {
     font-size: 10px;
     padding: var(--space-1) var(--space-3);
   }
+}
+
+/* Sync button badge */
+.sync-badge {
+  transition: transform 0.2s ease;
+}
+#sync-btn:not(:disabled):hover .sync-badge {
+  transform: scale(1.15);
+}
+#sync-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+#sync-btn:disabled i {
+  animation: sync-spin 1s linear infinite;
+}
+@keyframes sync-spin {
+  to { transform: rotate(360deg); }
 }

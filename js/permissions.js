@@ -1,5 +1,6 @@
 /* ============================================================
    PERMISSIONS — Role-based access control
+   Server-side enforced via has_permission() RPC
    ============================================================ */
 
 const Perms = {
@@ -89,9 +90,7 @@ const Perms = {
             }
           });
         });
-      } catch {
-        Perms._overrides = defaults;
-      }
+      } catch (err) { console.warn('[Perms] Failed to parse overrides, resetting to defaults:', err); Perms._overrides = defaults; }
     } else {
       Perms._overrides = defaults;
     }
@@ -104,7 +103,7 @@ const Perms = {
     if (Perms._cache) return;
     const raw = localStorage.getItem(Perms.STORAGE_KEY);
     if (raw) {
-      try { Perms._cache = JSON.parse(raw); } catch { Perms._cache = null; }
+      try { Perms._cache = JSON.parse(raw); } catch (err) { console.warn('[Perms] Failed to parse permissions cache:', err); Perms._cache = null; }
     }
     if (!Perms._cache) {
       Perms._cache = JSON.parse(JSON.stringify(Perms._defaults));
@@ -148,6 +147,44 @@ const Perms = {
     if (!session) return false;
     const role = session.role;
     return !!Perms._getOverrides()[role]?.[permissionKey];
+  },
+
+  /**
+   * Server-side permission check via RPC.
+   * Returns true/false from the database.
+   * Falls back to client-side check if RPC fails.
+   */
+  async checkServer(pageId, action = 'read') {
+    try {
+      const result = await Supabase._fetch('POST', 'rpc/has_permission', {
+        body: { p_page_id: pageId, p_action: action },
+      });
+      return result === true;
+    } catch (err) {
+      console.warn('[Perms] Server-side check failed, falling back to client-side:', err);
+      return action === 'read' ? Perms.canRead(pageId) : Perms.canWrite(pageId);
+    }
+  },
+
+  /**
+   * Verify current session permissions against server.
+   * Called after login to ensure client-side cache matches server truth.
+   */
+  async verify() {
+    const session = Auth.getSession();
+    if (!session) return false;
+
+    // For superadmin/head, server always returns true — no need to check each page
+    if (session.role === 'superadmin' || session.role === 'head') return true;
+
+    // For auditor/division, verify a known page to confirm role is legitimate
+    const testPage = session.role === 'division' ? 'dept-dashboard' : 'cases';
+    const allowed = await Perms.checkServer(testPage, 'read');
+    if (!allowed) {
+      console.error('[Perms] Server denied access — role may have been changed. Logging out.');
+      return false;
+    }
+    return true;
   },
 };
 

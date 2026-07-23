@@ -3,3 +3,9 @@ usr_superadmin,admin,admin123,Administrator,admin@internalaudit.com,superadmin,,
 usr_manager,manager,123,Manager,manager@internalaudit.com,head,Store Audit,active,,2025-01-01T00:00:00Z
 usr_auditor,auditor,123,Auditor,auditor@internalaudit.com,auditor,Store Audit,active,,2025-01-01T00:00:00Z
 usr_divisi,divisi,123,Divisi,divisi@internalaudit.com,division,Operations,active,,2025-01-01T00:00:00Z
+usr_head_sa,head_sa,123,Budi Santoso,budi.santoso@internalaudit.com,head,Store Audit,active,,2025-01-01T00:00:00Z
+usr_aud1,aud1,123,Andi Wijaya,andi.wijaya@internalaudit.com,auditor,Store Audit,active,,2025-01-01T00:00:00Z
+usr_aud2,aud2,123,Dewi Lestari,dewi.lestari@internalaudit.com,auditor,Store Audit,active,,2025-01-01T00:00:00Z
+usr_head_ca,head_ca,123,Sari Dewi,sari.dewi@internalaudit.com,head,Corporate Audit,active,,2025-01-01T00:00:00Z
+usr_aud3,aud3,123,Fajar Nugroho,fajar.nugroho@internalaudit.com,auditor,Corporate Audit,active,,2025-01-01T00:00:00Z
+usr_head_bpi,head_bpi,123,Rudi Hermawan,rudi.hermawan@internalaudit.com,head,Business Process Improvement,active,,2025-01-01T00:00:00Z

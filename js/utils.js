@@ -90,7 +90,7 @@ const Utils = {
       'active':      'badge-green',
       'inactive':    'badge-red',
     };
-    return `<span class="badge ${map[status] || 'badge-gray'}">${status}</span>`;
+    return `<span class="badge ${map[status] || 'badge-gray'}">${Utils.escapeHtml(status)}</span>`;
   },
 
   laporanBadge(status) {
@@ -100,7 +100,7 @@ const Utils = {
       'Completed':   'badge-green',
       'Cancelled':   'badge-red',
     };
-    return `<span class="badge ${map[status] || 'badge-gray'}">${status || '-'}</span>`;
+    return `<span class="badge ${map[status] || 'badge-gray'}">${Utils.escapeHtml(status || '-')}</span>`;
   },
 
   aapStatusBadge(status) {
@@ -114,7 +114,7 @@ const Utils = {
 
   severityBadge(sev) {
     const map = { 'High': 'badge-red', 'Medium': 'badge-amber', 'Low': 'badge-green' };
-    return `<span class="badge ${map[sev] || 'badge-gray'}">${sev || '-'}</span>`;
+    return `<span class="badge ${map[sev] || 'badge-gray'}">${Utils.escapeHtml(sev || '-')}</span>`;
   },
 
   trendHtml(pct) {
@@ -145,7 +145,7 @@ const Utils = {
       try {
         selectionStart = activeEl.selectionStart;
         selectionEnd = activeEl.selectionEnd;
-      } catch (e) {}
+          } catch (e) { /* setSelectionRange not supported on this element type */ }
     }
 
     el.innerHTML = html;
@@ -158,7 +158,7 @@ const Utils = {
         if (selectionStart !== null && selectionEnd !== null) {
           try {
             newActiveEl.setSelectionRange(selectionStart, selectionEnd);
-          } catch (e) {}
+      } catch (e) { /* selectionStart/End not available on this element type */ }
         }
       }
     }
@@ -276,30 +276,33 @@ const Utils = {
   },
 
   // ── Master Data Lookup Helpers ─────────────────────────
-  getCatName(id) {
+  _lookupName(table, id, field) {
     if (!id) return '';
-    const cat = DB.find('fraud_categories', id);
-    return cat ? cat.name : id;
+    const r = DB.find(table, id);
+    if (r) return r.name || id;
+    if (field) {
+      const list = DB.get(table);
+      const byVal = list.find(item => item[field] === id);
+      if (byVal) return byVal.name || id;
+    }
+    const list = DB.get(table);
+    const byName = list.find(item => item.name === id);
+    return byName ? byName.name : id;
+  },
+  getCatName(id) {
+    return Utils._lookupName('fraud_categories', id);
   },
   getProvName(id) {
-    if (!id) return '';
-    const p = DB.find('provinces', id);
-    return p ? p.name : id;
+    return Utils._lookupName('provinces', id);
   },
   getDeptName(id) {
-    if (!id) return '';
-    const d = DB.find('departments', id);
-    return d ? d.name : id;
+    return Utils._lookupName('departments', id);
   },
   getOutletName(code) {
-    if (!code) return '';
-    const outlet = DB.get('outlets').find(o => o.code === code);
-    return outlet ? outlet.name : code;
+    return Utils._lookupName('outlets', code, 'code');
   },
   getBrandName(id) {
-    if (!id) return '';
-    const b = DB.find('brands', id);
-    return b ? b.name : id;
+    return Utils._lookupName('brands', id, 'code');
   },
 };
 
@@ -321,8 +324,8 @@ const Toast = {
     toast.innerHTML = `
       <span class="toast-icon">${icons[type] || icons.info}</span>
       <div class="toast-body">
-        ${title ? `<div class="toast-title">${title}</div>` : ''}
-        <div class="toast-message">${message}</div>
+        ${title ? `<div class="toast-title">${Utils.escapeHtml(title)}</div>` : ''}
+        <div class="toast-message">${Utils.escapeHtml(message)}</div>
       </div>
     `;
     container.appendChild(toast);
@@ -390,8 +393,8 @@ const Modal = {
           <div class="confirm-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           </div>
-          <h3>${title}</h3>
-          <p>${message}</p>
+          <h3>${Utils.escapeHtml(title)}</h3>
+          <p>${Utils.escapeHtml(message)}</p>
         </div>
       </div>
       <div class="modal-footer">

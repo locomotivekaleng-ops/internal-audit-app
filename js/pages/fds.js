@@ -87,21 +87,21 @@ const FDSPage = {
           <div class="filter-bar" style="margin-bottom:var(--space-3)">
             <div class="search-input-wrapper">
               <i data-lucide="search"></i>
-              <input type="text" class="form-control search-input" id="fds-search" placeholder="Search…" value="${FDSPage.filters.search}" />
+              <input type="text" class="form-control search-input" id="fds-search" placeholder="Search…" value="${Utils.escapeHtml(FDSPage.filters.search)}" />
             </div>
             <input type="date" class="form-control" id="fds-date-from" value="${FDSPage.filters.dateFrom}" />
             <span style="color:var(--text-muted);font-size:12px">to</span>
             <input type="date" class="form-control" id="fds-date-to" value="${FDSPage.filters.dateTo}" />
             <select class="form-control" data-filter="brand">
               <option value="">All Brands</option>
-              ${brands.map(b=>`<option value="${b.id}" ${FDSPage.filters.brand===b.id?'selected':''}>${b.name}</option>`).join('')}
+              ${brands.map(b=>`<option value="${b.id}" ${FDSPage.filters.brand===b.id?'selected':''}>${Utils.escapeHtml(b.name)}</option>`).join('')}
             </select>
             <select class="form-control" data-filter="outlet">
               <option value="">All Outlets</option>
               ${(() => {
                 const brandFilter = FDSPage.filters.brand;
                 const outletList = brandFilter ? DB.get('outlets').filter(o => o.brand === brandFilter) : DB.get('outlets');
-                return outletList.map(o => `<option value="${o.code}" ${FDSPage.filters.outlet===o.code?'selected':''}>${o.code} — ${o.name}</option>`).join('');
+                return outletList.map(o => `<option value="${o.code}" ${FDSPage.filters.outlet===o.code?'selected':''}>${Utils.escapeHtml(o.code)} — ${Utils.escapeHtml(o.name)}</option>`).join('');
               })()}
             </select>
             <select class="form-control" data-filter="status">
@@ -218,7 +218,7 @@ const FDSPage = {
     Components.renderPagination('fds-pagination', FDSPage.page,
       Math.max(1, Math.ceil(filtered.length/FDSPage.perPage)),
       filtered.length,
-      `FDSPage.page = page; FDSPage.refresh();`);
+      (page) => { FDSPage.page = page; FDSPage.refresh(); });
     if (window.lucide) lucide.createIcons();
   },
 
@@ -308,10 +308,10 @@ const FDSPage = {
             const pi = document.getElementById('ff-prov');
             if (outlet) {
               if (ni) ni.value = outlet.name || '';
-              if (pi) pi.value = Utils.getProvName(outlet.province) || '';
+              if (pi) { pi.value = Utils.getProvName(outlet.province) || ''; pi.dataset.provinceId = outlet.province || ''; }
             } else {
               if (ni) ni.value = '';
-              if (pi) pi.value = '';
+              if (pi) { pi.value = ''; pi.dataset.provinceId = ''; }
             }
           },
         },
@@ -375,15 +375,15 @@ const FDSPage = {
       </div>
       <div class="modal-body">
         <div class="detail-grid">
-          <div class="detail-item"><div class="detail-label">Case No</div><div class="detail-value col-bold">${c.caseNo}</div></div>
+          <div class="detail-item"><div class="detail-label">Case No</div><div class="detail-value col-bold">${Utils.escapeHtml(c.caseNo)}</div></div>
           <div class="detail-item"><div class="detail-label">Detection Date</div><div class="detail-value">${Utils.formatDate(c.detectionDate)}</div></div>
-          <div class="detail-item"><div class="detail-label">Category</div><div class="detail-value">${Utils.getCatName(c.category)}</div></div>
+          <div class="detail-item"><div class="detail-label">Category</div><div class="detail-value">${Utils.escapeHtml(Utils.getCatName(c.category))}</div></div>
           <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value">${Utils.statusBadge(c.status)}</div></div>
-          <div class="detail-item"><div class="detail-label">Outlet</div><div class="detail-value"><span class="col-mono">${c.outletCode}</span> ${Utils.getOutletName(c.outletCode)}</div></div>
-          <div class="detail-item"><div class="detail-label">Brand</div><div class="detail-value">${Utils.getBrandName(c.brand)}</div></div>
-          <div class="detail-item"><div class="detail-label">Province</div><div class="detail-value">${Utils.getProvName(c.province)}</div></div>
+          <div class="detail-item"><div class="detail-label">Outlet</div><div class="detail-value"><span class="col-mono">${Utils.escapeHtml(c.outletCode)}</span> ${Utils.escapeHtml(Utils.getOutletName(c.outletCode))}</div></div>
+          <div class="detail-item"><div class="detail-label">Brand</div><div class="detail-value">${Utils.escapeHtml(Utils.getBrandName(c.brand))}</div></div>
+          <div class="detail-item"><div class="detail-label">Province</div><div class="detail-value">${Utils.escapeHtml(Utils.getProvName(c.province))}</div></div>
           <div class="detail-item"><div class="detail-label">Estimated Fraud</div><div class="detail-value text-amber font-bold">${Utils.formatIDRFull(c.estimatedFraud)}</div></div>
-          <div class="detail-item"><div class="detail-label">Assigned To</div><div class="detail-value">${aud ? aud.name : '-'}</div></div>
+          <div class="detail-item"><div class="detail-label">Assigned To</div><div class="detail-value">${aud ? Utils.escapeHtml(aud.name) : '-'}</div></div>
           <div class="detail-item"></div>
           ${auditPlanHtml}
         </div>
@@ -433,7 +433,7 @@ const FDSPage = {
         <div class="form-grid form-grid-2">
           <div class="form-group">
             <label class="form-label required">Case No</label>
-            <input type="text" class="form-control" id="ff-caseno" value="${Utils.escapeHtml(c?.caseNo||FDSPage._genCaseNo())}" />
+            <input type="text" class="form-control" id="ff-caseno" value="${Utils.escapeHtml(c?.caseNo||'')}" placeholder="Auto" readonly />
           </div>
           <div class="form-group">
             <label class="form-label required">Detection Date</label>
@@ -465,7 +465,7 @@ const FDSPage = {
           </div>
           <div class="form-group">
             <label class="form-label required">Province</label>
-            <input type="text" class="form-control" id="ff-prov" value="${Utils.escapeHtml(Utils.getProvName(c?.province||''))}" readonly />
+            <input type="text" class="form-control" id="ff-prov" data-province-id="${c?.province||''}" value="${Utils.escapeHtml(Utils.getProvName(c?.province||''))}" readonly />
           </div>
           <div class="form-group">
             <label class="form-label required">Status</label>
@@ -509,56 +509,72 @@ const FDSPage = {
     const list    = document.getElementById('ff-outlet-datalist');
     const input   = document.getElementById('ff-outlet');
     if (!list) return;
-    list.innerHTML = outlets.map(o => `<option value="${o.code} — ${o.name}">`).join('');
+    list.innerHTML = outlets.map(o => `<option value="${Utils.escapeHtml(o.code)} — ${Utils.escapeHtml(o.name)}">`).join('');
     if (input) input.value = '';
     const nameInput = document.getElementById('ff-outletname');
     const provInput = document.getElementById('ff-prov');
     if (nameInput) nameInput.value = '';
-    if (provInput) provInput.value = '';
+    if (provInput) { provInput.value = ''; provInput.dataset.provinceId = ''; }
   },
 
-  _genCaseNo() {
+  _genCaseNo(dateStr) {
     const all = DB.get('fds_cases');
-    const year = new Date().getFullYear();
-    const yearCases = all.filter(c => c.caseNo && c.caseNo.startsWith(`FDS-${year}-`));
-    const nums = yearCases.map(c => parseInt(c.caseNo.split('-')[2]) || 0);
+    const d = dateStr ? new Date(dateStr) : new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const yearCases = all.filter(c => c.caseNo && /^FDS-\d{2}-\d{4}-\d+$/.test(c.caseNo) && c.caseNo.includes(`-${year}-`));
+    const nums = yearCases.map(c => parseInt(c.caseNo.split('-')[3]) || 0);
     const next = (Math.max(0, ...nums) + 1).toString().padStart(3, '0');
-    return `FDS-${year}-${next}`;
+    return `FDS-${mm}-${year}-${next}`;
   },
 
-  saveCase(id) {
+  async saveCase(id) {
     const outletVal = document.getElementById('ff-outlet')?.value || '';
     const outletCode = outletVal.split(' — ')[0].trim();
+    const detectionDate = document.getElementById('ff-date').value;
+
+    let caseNo = document.getElementById('ff-caseno').value;
+    if (!id && !caseNo) {
+      caseNo = FDSPage._genCaseNo(detectionDate);
+    }
 
     const data = {
-      caseNo:        document.getElementById('ff-caseno').value,
+      caseNo:        caseNo,
       detectionDate: document.getElementById('ff-date').value,
       category:      document.getElementById('ff-cat').value,
       brand:         document.getElementById('ff-brand').value,
       outletCode:    outletCode,
-      province:      document.getElementById('ff-prov').value,
+      province:      document.getElementById('ff-prov').dataset.provinceId || null,
       status:        document.getElementById('ff-status').value,
       estimatedFraud:Utils.parseFormattedNumber(document.getElementById('ff-fraud').value),
-      assignedTo:    document.getElementById('ff-assign').value,
+      assignedTo:    document.getElementById('ff-assign').value || null,
       description:   document.getElementById('ff-desc').value,
       notes:         document.getElementById('ff-notes').value,
     };
-    if (!data.caseNo || !data.detectionDate) { Toast.error('Fill required fields.'); return; }
-    if (id) { DB.update('fds_cases', id, data); Toast.success('FDS case updated.'); }
-    else     { DB.insert('fds_cases', data);     Toast.success('FDS case added.'); }
-    Modal.close();
-    FDSPage.refresh();
+    if (!data.caseNo || !data.detectionDate || !data.category || !data.brand || !data.status) { Toast.error('Fill required fields.'); return; }
+    try {
+      if (id) { await DB.update('fds_cases', id, data); Toast.success('FDS case updated.'); }
+      else     { await DB.insert('fds_cases', data);     Toast.success('FDS case added.'); }
+      Modal.close();
+      FDSPage.refresh();
+    } catch (e) {
+      Toast.error('Gagal menyimpan FDS case: ' + e.message);
+    }
   },
 
   deleteCase(id) {
-    Modal.confirm('Delete FDS Case', 'This cannot be undone. Delete this case?', () => {
-      const pl = DB.get('audit_plannings').find(p => p.trigger === 'FDS' && p.triggerRef === id);
-      if (pl) {
-        DB.update('audit_plannings', pl.id, { trigger: 'Direct', triggerRef: null });
+    Modal.confirm('Delete FDS Case', 'This cannot be undone. Delete this case?', async () => {
+      try {
+        const pl = DB.get('audit_plannings').find(p => p.trigger === 'FDS' && p.triggerRef === id);
+        if (pl) {
+          await DB.update('audit_plannings', pl.id, { trigger: 'Direct', triggerRef: null });
+        }
+        await DB.delete('fds_cases', id);
+        Toast.success('FDS case deleted.');
+        FDSPage.refresh();
+      } catch (e) {
+        Toast.error('Gagal menghapus FDS case: ' + e.message);
       }
-      DB.delete('fds_cases', id);
-      Toast.success('FDS case deleted.');
-      FDSPage.refresh();
     });
   }
 };

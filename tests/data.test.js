@@ -101,8 +101,8 @@ describe('DB', () => {
   });
 
   it('should list all tables via TABLES', () => {
-    expect(DB.TABLES.USERS).toBe('users');
     expect(DB.TABLES.AUDITORS).toBe('auditors');
+    expect(DB.TABLES.PROFILES).toBe('profiles');
     expect(DB.TABLES.WBS_CASES).toBe('wbs_cases');
   });
 

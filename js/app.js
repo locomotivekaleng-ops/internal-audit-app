@@ -2,29 +2,37 @@
    MAIN APPLICATION LOGIC
    ============================================================ */
 
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('[App] Initializing Internal Audit Monitoring System...');
+document.addEventListener('DOMContentLoaded', async () => {
 
-  // Initialize data seed if not already present
+  // Show loading
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) overlay.classList.remove('hidden');
+
+  try {
+    // Load all data from Supabase into local cache
+    await DB.init();
+  } catch (err) {
+    console.error('[App] Failed to load data:', err);
+  }
+
+  // Seed/migration (compatibility shim)
   if (typeof window.seedDatabase === 'function') {
     window.seedDatabase();
-  } else {
-    console.error('[App] seedDatabase is not defined or loaded.');
   }
 
   // Initialize Router
   if (window.Router && typeof window.Router.init === 'function') {
     window.Router.init();
-    console.log('[App] Router initialized.');
-  } else {
-    console.error('[App] Router is not defined or loaded.');
   }
+
+  // Hide loading
+  if (overlay) overlay.classList.add('hidden');
 
   // Escape key closes modal
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      const overlay = document.getElementById('modal-overlay');
-      if (overlay && !overlay.classList.contains('hidden')) {
+      const modalOverlay = document.getElementById('modal-overlay');
+      if (modalOverlay && !modalOverlay.classList.contains('hidden')) {
         Modal.close();
       }
     }

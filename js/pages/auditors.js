@@ -20,8 +20,9 @@ const AuditorsPage = {
 
   buildHtml() {
     const auditors = DB.get('auditors');
-    const depts    = DB.get('departments');
+    const allDepts = DB.get('departments');
     const plannings = DB.get('audit_plannings');
+    const depts    = allDepts.filter(d => auditors.some(a => a.department === d.id && a.status === 'active'));
 
     const filtered = auditors.filter(a => {
       if (AuditorsPage.activeDept !== 'all' && a.department !== AuditorsPage.activeDept) return false;
@@ -47,7 +48,7 @@ const AuditorsPage = {
       <div class="page-header">
         <div class="page-header-left">
           <h2>Auditor Management</h2>
-          <p>${auditors.filter(a=>a.status==='active').length} active auditors across 3 departments</p>
+          <p>${auditors.filter(a=>a.status==='active').length} active auditors across ${deptStats.length} departments</p>
         </div>
         <div class="page-header-actions">
           ${Auth.isHead() ? `<button class="btn btn-primary" id="auditors-add-btn"><i data-lucide="user-plus"></i> Add Auditor</button>` : ''}
@@ -58,7 +59,7 @@ const AuditorsPage = {
       <div class="kpi-grid kpi-grid-3">
         ${deptStats.map((d,i) => `
           <div class="kpi-card ${['blue','green','purple'][i]}">
-            <div class="kpi-label">${d.dept.name}</div>
+            <div class="kpi-label">${Utils.escapeHtml(d.dept.name)}</div>
             <div class="kpi-value">${d.count}</div>
             <div class="kpi-sub">${d.cases} cases assigned</div>
           </div>`).join('')}
@@ -68,7 +69,7 @@ const AuditorsPage = {
       <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)">
         <div class="dept-tabs">
           <div class="dept-tab ${AuditorsPage.activeDept==='all'?'active':''}" data-dept="all">All Departments</div>
-          ${depts.map(d => `<div class="dept-tab ${AuditorsPage.activeDept===d.id?'active':''}" data-dept="${d.id}">${d.name}</div>`).join('')}
+          ${depts.map(d => `<div class="dept-tab ${AuditorsPage.activeDept===d.id?'active':''}" data-dept="${d.id}">${Utils.escapeHtml(d.name)}</div>`).join('')}
         </div>
         <div class="search-input-wrapper">
           <i data-lucide="search"></i>
@@ -104,9 +105,9 @@ const AuditorsPage = {
           ` : ''}
         </div>
         <div class="auditor-avatar-large" style="background:linear-gradient(135deg,${colors[colorIdx]},${colors[(colorIdx+2)%colors.length]})">${initials}</div>
-        <div class="card-name">${a.name}</div>
-        <div class="card-title">${a.title}</div>
-        <div class="card-dept"><span class="badge ${(()=>{const dn=Utils.getDeptName(a.department);return dn==='Store Audit'?'badge-blue':dn==='Corporate Audit'?'badge-green':'badge-purple'})()}" style="font-size:9px">${Utils.getDeptName(a.department)}</span></div>
+        <div class="card-name">${Utils.escapeHtml(a.name)}</div>
+        <div class="card-title">${Utils.escapeHtml(a.title)}</div>
+        <div class="card-dept"><span class="badge ${(()=>{const dn=Utils.getDeptName(a.department);return dn==='Store Audit'?'badge-blue':dn==='Corporate Audit'?'badge-green':'badge-purple'})()}" style="font-size:9px">${Utils.escapeHtml(Utils.getDeptName(a.department))}</span></div>
         ${a.status === 'inactive' ? '<div style="text-align:center;margin-top:4px"><span class="badge badge-red">Inactive</span></div>' : ''}
         <div class="card-stats">
           <div class="auditor-stat">
@@ -123,7 +124,7 @@ const AuditorsPage = {
           </div>
         </div>
         <div style="margin-top:var(--space-3);font-size:10px;color:var(--text-muted)">
-          NIK: ${a.nik} &nbsp;·&nbsp; Since ${a.joinDate ? a.joinDate.substring(0,4) : '-'}
+          NIK: ${Utils.escapeHtml(a.nik)} &nbsp;·&nbsp; Since ${a.joinDate ? a.joinDate.substring(0,4) : '-'}
         </div>
         <button class="btn btn-secondary w-full mt-2" style="font-size:11px;justify-content:center" data-id="${a.id}" data-action="view-auditor">
           <i data-lucide="eye"></i> View Profile
@@ -181,15 +182,15 @@ const AuditorsPage = {
       <div class="modal-body">
         <div style="text-align:center;margin-bottom:var(--space-5)">
           <div class="auditor-avatar-large" style="margin:0 auto var(--space-3)">${Utils.getInitials(a.name)}</div>
-          <div style="font-size:16px;font-weight:700;color:var(--text-primary)">${a.name}</div>
-          <div style="font-size:12px;color:var(--text-muted)">${a.title}</div>
-          <div style="margin-top:var(--space-2)"><span class="badge badge-blue">${a.department}</span> ${Utils.statusBadge(a.status)}</div>
+          <div style="font-size:16px;font-weight:700;color:var(--text-primary)">${Utils.escapeHtml(a.name)}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${Utils.escapeHtml(a.title)}</div>
+          <div style="margin-top:var(--space-2)"><span class="badge badge-blue">${Utils.getDeptName(a.department)}</span> ${Utils.statusBadge(a.status)}</div>
         </div>
         <div class="detail-grid">
-          <div class="detail-item"><div class="detail-label">NIK</div><div class="detail-value">${a.nik}</div></div>
+          <div class="detail-item"><div class="detail-label">NIK</div><div class="detail-value">${Utils.escapeHtml(a.nik)}</div></div>
           <div class="detail-item"><div class="detail-label">Join Date</div><div class="detail-value">${Utils.formatDate(a.joinDate)}</div></div>
-          <div class="detail-item"><div class="detail-label">Email</div><div class="detail-value">${a.email||'-'}</div></div>
-          <div class="detail-item"><div class="detail-label">Phone</div><div class="detail-value">${a.phone||'-'}</div></div>
+          <div class="detail-item"><div class="detail-label">Email</div><div class="detail-value">${Utils.escapeHtml(a.email||'-')}</div></div>
+          <div class="detail-item"><div class="detail-label">Phone</div><div class="detail-value">${Utils.escapeHtml(a.phone||'-')}</div></div>
         </div>
         <div class="divider"></div>
         <h4 style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:var(--space-3)">Case Statistics</h4>
@@ -203,7 +204,7 @@ const AuditorsPage = {
         <h4 style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:var(--space-3)">Recent Cases</h4>
         <div class="data-table-wrapper"><table class="data-table"><thead><tr><th>No. Laporan</th><th>Outlet</th><th>Total Loss</th><th>Status</th></tr></thead><tbody>
         ${cases.slice(0,5).map(p=>`<tr>
-          <td class="col-bold">${p.reportNo}</td><td>${Utils.getOutletName(p.outletCode)||p.outletCode}</td>
+          <td class="col-bold">${Utils.escapeHtml(p.reportNo)}</td><td>${Utils.escapeHtml(Utils.getOutletName(p.outletCode)||p.outletCode)}</td>
           <td class="text-red">Rp ${Utils.formatIDR(DB.get('audit_results').filter(r=>r.planningId===p.id).reduce((s,r)=>s+(r.totalLoss||0),0))}</td><td>${Utils.statusBadge(p.status)}</td>
         </tr>`).join('')}
         </tbody></table></div>` : ''}
@@ -220,7 +221,7 @@ const AuditorsPage = {
 
   _openModal(a) {
     const isEdit = !!a;
-    const users = DB.get('users');
+    const users = DB.get('profiles');
     const depts = DB.get('departments');
 
     Modal.open(`
@@ -245,7 +246,7 @@ const AuditorsPage = {
           <div class="form-group">
             <label class="form-label required">Department</label>
             <select class="form-control" id="af-dept">
-              ${depts.map(d=>`<option value="${d.id}" ${a?.department===d.id?'selected':''}>${d.name}</option>`).join('')}
+              ${depts.map(d=>`<option value="${d.id}" ${a?.department===d.id?'selected':''}>${Utils.escapeHtml(d.name)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
@@ -271,7 +272,7 @@ const AuditorsPage = {
             <label class="form-label">Linked User Account</label>
             <select class="form-control" id="af-user">
               <option value="">-- No linked account --</option>
-              ${users.filter(u=>u.role==='auditor'||u.role==='head').map(u=>`<option value="${u.id}" ${a?.userId===u.id?'selected':''}>${u.username} (${u.name})</option>`).join('')}
+              ${users.filter(u=>u.role==='auditor'||u.role==='head').map(u=>`<option value="${u.id}" ${a?.userId===u.id?'selected':''}>${Utils.escapeHtml(u.username)} (${Utils.escapeHtml(u.name)})</option>`).join('')}
             </select>
           </div>
         </div>
@@ -286,7 +287,7 @@ const AuditorsPage = {
     PageLifecycle.on('auditors-save-btn', 'click', () => AuditorsPage.saveAuditor(a?.id || ''));
   },
 
-  saveAuditor(id) {
+  async saveAuditor(id) {
     const data = {
       name:     document.getElementById('af-name').value,
       nik:      document.getElementById('af-nik').value,
@@ -294,27 +295,35 @@ const AuditorsPage = {
       department: document.getElementById('af-dept').value,
       email:    document.getElementById('af-email').value,
       phone:    document.getElementById('af-phone').value,
-      joinDate: document.getElementById('af-join').value,
+      joinDate: document.getElementById('af-join').value || new Date().toISOString().split('T')[0],
       status:   document.getElementById('af-status').value,
       userId:   document.getElementById('af-user').value || null,
     };
     if (!data.name || !data.nik || !data.title) { Toast.error('Fill required fields.'); return; }
-    if (id) { DB.update('auditors', id, data); Toast.success('Auditor updated.'); }
-    else     { DB.insert('auditors', data);    Toast.success('Auditor added.'); }
-    Modal.close();
-    AuditorsPage.refresh();
+    try {
+      if (id) { await DB.update('auditors', id, data); Toast.success('Auditor updated.'); }
+      else     { await DB.insert('auditors', data);    Toast.success('Auditor added.'); }
+      Modal.close();
+      AuditorsPage.refresh();
+    } catch (e) {
+      Toast.error('Gagal menyimpan auditor: ' + e.message);
+    }
   },
 
-  deleteAuditor(id) {
+  async deleteAuditor(id) {
     const refs = DB.get('audit_plannings').filter(p => p.leadAuditor === id || (p.auditorTeam || []).includes(id)).length;
     if (refs > 0) {
       Toast.error(`Tidak dapat menghapus auditor: masih menjadi Lead/Team Auditor di ${refs} perencanaan audit. Hapus atau ubah referensi terlebih dahulu.`);
       return;
     }
-    Modal.confirm('Delete Auditor', 'Are you sure you want to delete this auditor record?', () => {
-      DB.delete('auditors', id);
-      Toast.success('Auditor deleted.');
-      AuditorsPage.refresh();
+    Modal.confirm('Delete Auditor', 'Are you sure you want to delete this auditor record?', async () => {
+      try {
+        await DB.delete('auditors', id);
+        Toast.success('Auditor deleted.');
+        AuditorsPage.refresh();
+      } catch (e) {
+        Toast.error('Gagal menghapus auditor: ' + e.message);
+      }
     });
   }
 };

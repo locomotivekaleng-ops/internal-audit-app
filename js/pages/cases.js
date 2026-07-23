@@ -47,16 +47,20 @@ const CasesPage = {
   // Plan → In Progress (when first finding added)
   // In Progress → Plan (if last finding removed)
   // Does NOT touch Completed or Cancelled status
-  _autoUpdateLaporanStatus(planningId) {
+  async _autoUpdateLaporanStatus(planningId) {
     const p = DB.find('audit_plannings', planningId);
     if (!p || p.status === 'Completed' || p.status === 'Cancelled') return;
-    const results = DB.get('audit_results').filter(r => r.planningId === planningId);
-    if (results.length > 0 && p.status === 'Plan') {
-      DB.update('audit_plannings', planningId, { status: 'In Progress' });
-      AuditMetrics.syncPlanningRelationships(planningId, p.trigger, p.triggerRef, p.trigger, p.triggerRef);
-    } else if (results.length === 0 && p.status === 'In Progress') {
-      DB.update('audit_plannings', planningId, { status: 'Plan' });
-      AuditMetrics.syncPlanningRelationships(planningId, p.trigger, p.triggerRef, p.trigger, p.triggerRef);
+    try {
+      const results = DB.get('audit_results').filter(r => r.planningId === planningId);
+      if (results.length > 0 && p.status === 'Plan') {
+        await DB.update('audit_plannings', planningId, { status: 'In Progress' });
+        await AuditMetrics.syncPlanningRelationships(planningId, p.trigger, p.triggerRef, p.trigger, p.triggerRef);
+      } else if (results.length === 0 && p.status === 'In Progress') {
+        await DB.update('audit_plannings', planningId, { status: 'Plan' });
+        await AuditMetrics.syncPlanningRelationships(planningId, p.trigger, p.triggerRef, p.trigger, p.triggerRef);
+      }
+    } catch (e) {
+      console.warn('[Cases] _autoUpdateLaporanStatus error:', e);
     }
   },
 
@@ -89,18 +93,22 @@ const CasesPage = {
     const statuses = ['Plan', 'In Progress', 'Completed', 'Cancelled'];
 
     // ---- KPI Summary (dynamic recovery from actions) ----
-    const totalPlannings  = all.length;
-    const totalResults    = results.length;
-    const totalActions    = actions.length;
-    const openActions     = actions.filter(a => a.status === 'Open').length;
-    const closedActions   = actions.filter(a => a.status === 'Closed').length;
-    const _metrics        = AuditMetrics.getGlobalMetrics(all);
+    const filteredPlanIds = filtered.map(p => p.id);
+    const filteredResults = results.filter(r => filteredPlanIds.includes(r.planningId));
+    const filteredActions = actions.filter(a => filteredPlanIds.includes(a.planningId));
+
+    const totalPlannings  = filtered.length;
+    const totalResults    = filteredResults.length;
+    const totalActions    = filteredActions.length;
+    const openActions     = filteredActions.filter(a => a.status === 'Open').length;
+    const closedActions   = filteredActions.filter(a => a.status === 'Closed').length;
+    const _metrics        = AuditMetrics.getGlobalMetrics(filtered);
     const totalLoss       = _metrics.totalLoss;
     const totalRecovery   = _metrics.totalRecovery;
     const totalUnrecovered = _metrics.totalUnrecovered;
     const totalOS         = Math.max(0, _metrics.outstandingLoss);
-    const completedPlans  = all.filter(p => p.status === 'Completed').length;
-    const inProgressPlans = all.filter(p => p.status === 'In Progress').length;
+    const completedPlans  = filtered.filter(p => p.status === 'Completed').length;
+    const inProgressPlans = filtered.filter(p => p.status === 'In Progress').length;
 
     return `
       <!-- KPI Strip -->
@@ -133,7 +141,7 @@ const CasesPage = {
           <div class="search-input-wrapper">
             <i data-lucide="search"></i>
             <input type="text" class="form-control search-input" id="cases-search" style="min-width:180px" placeholder="Cari nomor laporan, outlet…"
-              value="${CasesPage.filters.search}" />
+              value="${Utils.escapeHtml(CasesPage.filters.search)}" />
           </div>
           <input type="date" class="form-control" id="cases-date-from" value="${CasesPage.filters.dateFrom}" title="Dari Tanggal" />
           <span style="color:var(--text-muted);font-size:12px">s/d</span>
@@ -144,18 +152,18 @@ const CasesPage = {
           </select>
           <select class="form-control" id="cases-department">
             <option value="">Semua Dept</option>
-            ${depts.map(d => `<option value="${d.id}" ${CasesPage.filters.department === d.id ? 'selected' : ''}>${d.name}</option>`).join('')}
+            ${depts.map(d => `<option value="${d.id}" ${CasesPage.filters.department === d.id ? 'selected' : ''}>${Utils.escapeHtml(d.name)}</option>`).join('')}
           </select>
           <select class="form-control" id="cases-brand">
             <option value="">Semua Brand</option>
-            ${brands.map(b => `<option value="${b.id}" ${CasesPage.filters.brand === b.id ? 'selected' : ''}>${b.name}</option>`).join('')}
+            ${brands.map(b => `<option value="${b.id}" ${CasesPage.filters.brand === b.id ? 'selected' : ''}>${Utils.escapeHtml(b.name)}</option>`).join('')}
           </select>
           <select class="form-control" id="cases-outlet">
             <option value="">Semua Outlet</option>
             ${(() => {
               const brandFilter = CasesPage.filters.brand;
               const outletList = brandFilter ? DB.get('outlets').filter(o => o.brand === brandFilter) : DB.get('outlets');
-              return outletList.map(o => `<option value="${o.code}" ${CasesPage.filters.outlet === o.code ? 'selected' : ''}>${o.code} — ${o.name}</option>`).join('');
+              return outletList.map(o => `<option value="${o.code}" ${CasesPage.filters.outlet === o.code ? 'selected' : ''}>${Utils.escapeHtml(o.code)} — ${Utils.escapeHtml(o.name)}</option>`).join('');
             })()}
           </select>
           <select class="form-control" id="cases-status">
@@ -234,7 +242,7 @@ const CasesPage = {
     Components.renderPagination('cases-pagination', CasesPage.page,
       Math.max(1, Math.ceil(filtered.length / CasesPage.perPage)),
       filtered.length,
-      `CasesPage.page = page; CasesPage.refresh();`);
+      (page) => { CasesPage.page = page; CasesPage.refresh(); });
     if (!CasesPage._pageWired) {
       CasesPage._pageWired = true;
       PageLifecycle.delegate('page-content', {
@@ -359,10 +367,10 @@ const CasesPage = {
     let triggerHtml = '';
     if (p.trigger === 'WBS' && p.triggerRef) {
       const wbs = DB.find('wbs_cases', p.triggerRef);
-      if (wbs) triggerHtml = `<div class="detail-item"><div class="detail-label">WBS Case</div><div class="detail-value col-bold">${wbs.caseNo} — ${wbs.category}</div></div>`;
+      if (wbs) triggerHtml = `<div class="detail-item"><div class="detail-label">WBS Case</div><div class="detail-value col-bold">${Utils.escapeHtml(wbs.caseNo)} — ${Utils.escapeHtml(wbs.category)}</div></div>`;
     } else if (p.trigger === 'FDS' && p.triggerRef) {
       const fds = DB.find('fds_cases', p.triggerRef);
-      if (fds) triggerHtml = `<div class="detail-item"><div class="detail-label">FDS Case</div><div class="detail-value col-bold">${fds.caseNo} — ${fds.category}</div></div>`;
+      if (fds) triggerHtml = `<div class="detail-item"><div class="detail-label">FDS Case</div><div class="detail-value col-bold">${Utils.escapeHtml(fds.caseNo)} — ${Utils.escapeHtml(fds.category)}</div></div>`;
     }
 
     // "Kirim Laporan" button:
@@ -387,7 +395,7 @@ const CasesPage = {
 
     Modal.open(`
       <div class="modal-header">
-        <div class="modal-title"><i data-lucide="clipboard-list"></i> ${p.reportNo}</div>
+        <div class="modal-title"><i data-lucide="clipboard-list"></i> ${Utils.escapeHtml(p.reportNo)}</div>
         <button class="modal-close" data-action="modal-close"><i data-lucide="x"></i></button>
       </div>
       <div class="modal-body" style="padding-top:var(--space-2)">
@@ -409,22 +417,22 @@ const CasesPage = {
         <!-- Tab: Planning -->
         <div id="dsec-planning" class="modal-section" style="${tab !== 'planning' ? 'display:none' : ''}">
           <div class="detail-grid" style="margin-bottom:var(--space-3)">
-            <div class="detail-item"><div class="detail-label">Nomor Laporan</div><div class="detail-value col-bold" style="font-size:15px">${p.reportNo}</div></div>
+            <div class="detail-item"><div class="detail-label">Nomor Laporan</div><div class="detail-value col-bold" style="font-size:15px">${Utils.escapeHtml(p.reportNo)}</div></div>
             <div class="detail-item"><div class="detail-label">Tanggal Planning</div><div class="detail-value">${Utils.formatDate(p.planningDate)}</div></div>
             <div class="detail-item"><div class="detail-label">Periode Audit</div><div class="detail-value">${Utils.formatDate(p.auditDateFrom)} → ${Utils.formatDate(p.auditDateTo)}</div></div>
             <div class="detail-item"><div class="detail-label">Trigger</div><div class="detail-value"><span class="badge ${p.trigger === 'WBS' ? 'badge-purple' : p.trigger === 'FDS' ? 'badge-cyan' : 'badge-gray'}">${p.trigger}</span></div></div>
             ${triggerHtml}
-            <div class="detail-item"><div class="detail-label">Outlet</div><div class="detail-value"><span class="col-mono">${p.outletCode}</span> ${Utils.getOutletName(p.outletCode)}</div></div>
-            <div class="detail-item"><div class="detail-label">Brand</div><div class="detail-value">${Utils.getBrandName(p.brand)}</div></div>
-            <div class="detail-item"><div class="detail-label">Provinsi</div><div class="detail-value">${Utils.getProvName(p.province)}</div></div>
-            <div class="detail-item"><div class="detail-label">Outlet Manager</div><div class="detail-value">${p.outletManager || '-'}</div></div>
-            <div class="detail-item"><div class="detail-label">Multi Unit Manager</div><div class="detail-value">${p.multiUnitManager || '-'}</div></div>
-            <div class="detail-item"><div class="detail-label">Area Manager</div><div class="detail-value">${p.areaManager || '-'}</div></div>
-            <div class="detail-item"><div class="detail-label">Distrik Manager</div><div class="detail-value">${p.distrikManager || '-'}</div></div>
-            <div class="detail-item"><div class="detail-label">Departemen</div><div class="detail-value">${Utils.getDeptName(p.department) || '-'}</div></div>
+            <div class="detail-item"><div class="detail-label">Outlet</div><div class="detail-value"><span class="col-mono">${Utils.escapeHtml(p.outletCode)}</span> ${Utils.escapeHtml(Utils.getOutletName(p.outletCode))}</div></div>
+            <div class="detail-item"><div class="detail-label">Brand</div><div class="detail-value">${Utils.escapeHtml(Utils.getBrandName(p.brand))}</div></div>
+            <div class="detail-item"><div class="detail-label">Provinsi</div><div class="detail-value">${Utils.escapeHtml(Utils.getProvName(p.province))}</div></div>
+            <div class="detail-item"><div class="detail-label">Outlet Manager</div><div class="detail-value">${Utils.escapeHtml(p.outletManager) || '-'}</div></div>
+            <div class="detail-item"><div class="detail-label">Multi Unit Manager</div><div class="detail-value">${Utils.escapeHtml(p.multiUnitManager) || '-'}</div></div>
+            <div class="detail-item"><div class="detail-label">Area Manager</div><div class="detail-value">${Utils.escapeHtml(p.areaManager) || '-'}</div></div>
+            <div class="detail-item"><div class="detail-label">Distrik Manager</div><div class="detail-value">${Utils.escapeHtml(p.distrikManager) || '-'}</div></div>
+            <div class="detail-item"><div class="detail-label">Departemen</div><div class="detail-value">${Utils.escapeHtml(Utils.getDeptName(p.department)) || '-'}</div></div>
             <div class="detail-item"><div class="detail-label">Tipe Audit</div><div class="detail-value">${Utils.statusBadge(p.auditType)}</div></div>
-            <div class="detail-item"><div class="detail-label">Lead Auditor</div><div class="detail-value">${lead ? lead.name : '-'}</div></div>
-            <div class="detail-item"><div class="detail-label">Tim Auditor</div><div class="detail-value">${team || '-'}</div></div>
+            <div class="detail-item"><div class="detail-label">Lead Auditor</div><div class="detail-value">${lead ? Utils.escapeHtml(lead.name) : '-'}</div></div>
+            <div class="detail-item"><div class="detail-label">Tim Auditor</div><div class="detail-value">${Utils.escapeHtml(team) || '-'}</div></div>
             <div class="detail-item"><div class="detail-label">Status Laporan</div><div class="detail-value">${Utils.laporanBadge(p.status)}</div></div>
             <div class="detail-item"><div class="detail-label">Status Action Plan</div><div class="detail-value">${Utils.aapStatusBadge(aapStatus)}</div></div>
             ${p.reportSentDate ? `<div class="detail-item"><div class="detail-label">Tgl Kirim ke Auditee</div><div class="detail-value" style="font-weight:600;color:#10b981">${Utils.formatDate(p.reportSentDate)}</div></div>` : ''}
@@ -465,7 +473,7 @@ const CasesPage = {
         <!-- Tab: Audit Results (Findings) -->
         <div id="dsec-results" class="modal-section" style="${tab !== 'results' ? 'display:none' : ''}">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-3)">
-            <h4 style="font-size:13px;font-weight:700;color:var(--text-primary);margin:0">Temuan Audit — ${p.reportNo}</h4>
+            <h4 style="font-size:13px;font-weight:700;color:var(--text-primary);margin:0">Temuan Audit — ${Utils.escapeHtml(p.reportNo)}</h4>
             ${Auth.isAuditor() || Auth.isHead() ? `<button class="btn btn-primary btn-sm" data-action="open-result-modal" data-planning-id="${p.id}"><i data-lucide="plus"></i> Tambah Temuan</button>` : ''}
           </div>
           ${results.length === 0
@@ -549,7 +557,7 @@ const CasesPage = {
                             <div style="flex:1">
                               <div style="font-size:11px;font-weight:600;color:var(--text-primary)">${a.actionNo} — ${Utils.escapeHtml(a.actionTitle)}</div>
                               <div style="font-size:10px;color:var(--text-muted);margin-top:2px">
-                                 PIC: ${a.picName} · Dept: ${a.picDepartment || '-'} · Due: ${Utils.formatDate(a.dueDate)} ${isOverdue ? '<span style="color:#ef4444">⚠ OVERDUE</span>' : ''} · Target: Rp ${Utils.formatIDR(actMetrics.amount)}
+                                  PIC: ${Utils.escapeHtml(a.picName)} · Dept: ${Utils.escapeHtml(a.picDepartment) || '-'} · Due: ${Utils.formatDate(a.dueDate)} ${isOverdue ? '<span style="color:#ef4444">⚠ OVERDUE</span>' : ''} · Target: Rp ${Utils.formatIDR(actMetrics.amount)}
                               </div>
                               ${a.status === 'Closed' && r.nature !== 'Administrative' ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px">Recovery: <span style="color:#10b981;font-weight:600">Rp ${Utils.formatIDR(actMetrics.recovery)}</span> · Unrecovered: <span style="color:#a855f7;font-weight:600">Rp ${Utils.formatIDR(actMetrics.unrecovered)}</span> · OS: Rp ${Utils.formatIDR(actMetrics.outstanding)}</div>` : ''}
                             </div>
@@ -592,7 +600,7 @@ const CasesPage = {
         <!-- Tab: Agreed Actions Summary -->
         <div id="dsec-actions" class="modal-section" style="${tab !== 'actions' ? 'display:none' : ''}">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-3)">
-            <h4 style="font-size:13px;font-weight:700;color:var(--text-primary);margin:0">Monitoring Agreed Action Plans — ${p.reportNo}</h4>
+            <h4 style="font-size:13px;font-weight:700;color:var(--text-primary);margin:0">Monitoring Agreed Action Plans — ${Utils.escapeHtml(p.reportNo)}</h4>
           </div>
           ${actions.length === 0
             ? `<div style="text-align:center;padding:32px;border:1px dashed var(--border-color);border-radius:8px;color:var(--text-muted)">Belum ada agreed action untuk laporan ini. Tambahkan dari tab "Audit Results".</div>`
@@ -624,8 +632,8 @@ const CasesPage = {
                         <td class="col-mono" style="font-size:11px">${a.actionNo}</td>
                         <td style="font-size:11px;color:var(--text-muted)">${findingResult ? findingResult.findingNo : '-'}</td>
                         <td style="font-size:12px;max-width:200px">${Utils.escapeHtml(a.actionTitle)}</td>
-                        <td style="font-size:11px">${a.picName}</td>
-                        <td style="font-size:11px;color:var(--text-muted)">${a.picDepartment || '-'}</td>
+                        <td style="font-size:11px">${Utils.escapeHtml(a.picName)}</td>
+                        <td style="font-size:11px;color:var(--text-muted)">${Utils.escapeHtml(a.picDepartment) || '-'}</td>
                         <td style="font-size:11px;font-weight:600">Rp ${Utils.formatIDR(actMetrics.amount)}</td>
                         <td style="font-size:11px${isOverdue ? ';color:#ef4444;font-weight:600' : ''}">${Utils.formatDate(a.dueDate)}${isOverdue ? ' ⚠' : ''}</td>
                         <td style="font-size:11px">${a.completionDate ? Utils.formatDate(a.completionDate) : '-'}</td>
@@ -687,7 +695,7 @@ const CasesPage = {
       </div>
       <div class="modal-body">
         <p style="font-size:13px;color:var(--text-secondary);margin-bottom:var(--space-4)">
-          Laporan <strong>${p.reportNo}</strong> akan dikirimkan ke auditee. Status Laporan akan berubah menjadi <span class="badge badge-green">Completed</span>.
+          Laporan <strong>${Utils.escapeHtml(p.reportNo)}</strong> akan dikirimkan ke auditee. Status Laporan akan berubah menjadi <span class="badge badge-green">Completed</span>.
         </p>
         <div class="form-group">
           <label class="form-label required">Tanggal Kirim Laporan ke Auditee</label>
@@ -709,26 +717,29 @@ const CasesPage = {
     if (window.lucide) lucide.createIcons();
   },
 
-  _confirmKirimLaporan(planningId) {
+  async _confirmKirimLaporan(planningId) {
     const sentDate = document.getElementById('kl-sentdate')?.value;
     if (!sentDate) {
       Toast.error('Tanggal kirim wajib diisi.'); return;
     }
-    DB.update('audit_plannings', planningId, { status: 'Completed', reportSentDate: sentDate });
-    
-    // Auto-sync case status to Closed
-    const p = DB.find('audit_plannings', planningId);
-    if (p) {
-      if (p.trigger === 'WBS' && p.triggerRef) {
-        DB.update('wbs_cases', p.triggerRef, { status: 'Closed' });
-      } else if (p.trigger === 'FDS' && p.triggerRef) {
-        DB.update('fds_cases', p.triggerRef, { status: 'Closed' });
-      }
-    }
+    try {
+      await DB.update('audit_plannings', planningId, { status: 'Completed', reportSentDate: sentDate });
 
-    Toast.success('Laporan berhasil dikirim ke auditee. Status Laporan: Completed.', 'Laporan Dikirim');
-    CasesPage.viewPlanning(planningId, 'planning');
-    CasesPage.refresh();
+      // Auto-sync case status to Closed
+      const p = DB.find('audit_plannings', planningId);
+      if (p) {
+        if (p.trigger === 'WBS' && p.triggerRef) {
+          await DB.update('wbs_cases', p.triggerRef, { status: 'Closed' });
+        } else if (p.trigger === 'FDS' && p.triggerRef) {
+          await DB.update('fds_cases', p.triggerRef, { status: 'Closed' });
+        }
+      }
+
+      Toast.success('Laporan berhasil dikirim ke auditee. Status Laporan: Completed.', 'Laporan Dikirim');
+      CasesPage.viewPlanning(planningId, 'planning');
+    } catch (e) {
+      Toast.error('Gagal mengirim laporan: ' + e.message);
+    }
   },
 
   _switchDetailTab(tab) {
@@ -759,14 +770,14 @@ const CasesPage = {
 
     Modal.open(`
       <div class="modal-header">
-        <div class="modal-title"><i data-lucide="clipboard-list"></i> ${isEdit ? 'Edit' : 'New'} Audit Planning ${isEdit ? '— ' + p.reportNo : ''}</div>
+        <div class="modal-title"><i data-lucide="clipboard-list"></i> ${isEdit ? 'Edit' : 'New'} Audit Planning ${isEdit ? '— ' + Utils.escapeHtml(p.reportNo) : ''}</div>
         <button class="modal-close" data-action="modal-close"><i data-lucide="x"></i></button>
       </div>
       <div class="modal-body">
         <div class="form-grid form-grid-3">
           <div class="form-group">
             <label class="form-label required">Nomor Laporan</label>
-            <input type="text" class="form-control" id="pf-reportno" value="${Utils.escapeHtml(p?.reportNo || CasesPage._genReportNo())}" />
+            <input type="text" class="form-control" id="pf-reportno" value="${Utils.escapeHtml(p?.reportNo||'')}" placeholder="Auto" readonly />
           </div>
           <div class="form-group">
             <label class="form-label required">Tanggal Planning</label>
@@ -788,7 +799,7 @@ const CasesPage = {
             <label class="form-label">WBS Case Ref</label>
             <select class="form-control" id="pf-wbsref" data-action="update-wbs-desc">
               <option value="">— Pilih WBS Case —</option>
-              ${wbsCases.map(w => `<option value="${w.id}" ${p?.triggerRef === w.id ? 'selected' : ''}>${w.caseNo} — ${Utils.getOutletName(w.outletCode)}</option>`).join('')}
+              ${wbsCases.map(w => `<option value="${w.id}" ${p?.triggerRef === w.id ? 'selected' : ''}>${Utils.escapeHtml(w.caseNo)} — ${Utils.escapeHtml(Utils.getOutletName(w.outletCode))}</option>`).join('')}
             </select>
             <div id="pf-wbs-desc-container"></div>
           </div>
@@ -796,7 +807,7 @@ const CasesPage = {
             <label class="form-label">FDS Case Ref</label>
             <select class="form-control" id="pf-fdsref" data-action="update-fds-desc">
               <option value="">— Pilih FDS Case —</option>
-              ${fdsCases.map(f => `<option value="${f.id}" ${p?.triggerRef === f.id ? 'selected' : ''}>${f.caseNo} — ${Utils.getOutletName(f.outletCode)}</option>`).join('')}
+              ${fdsCases.map(f => `<option value="${f.id}" ${p?.triggerRef === f.id ? 'selected' : ''}>${Utils.escapeHtml(f.caseNo)} — ${Utils.escapeHtml(Utils.getOutletName(f.outletCode))}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
@@ -808,21 +819,21 @@ const CasesPage = {
           <div class="form-group">
             <label class="form-label required">Departemen</label>
             <select class="form-control" id="pf-dept">
-              ${depts.map(d => `<option value="${d.id}" ${p?.department === d.id ? 'selected' : ''}>${d.name}</option>`).join('')}
+              ${depts.map(d => `<option value="${d.id}" ${p?.department === d.id ? 'selected' : ''}>${Utils.escapeHtml(d.name)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
             <label class="form-label required">Brand</label>
             <select class="form-control" id="pf-brand" data-action="fill-outlets">
               <option value="">— Pilih Brand —</option>
-              ${brands.map(b => `<option value="${b.id}" ${p?.brand === b.id ? 'selected' : ''}>${b.name}</option>`).join('')}
+              ${brands.map(b => `<option value="${b.id}" ${p?.brand === b.id ? 'selected' : ''}>${Utils.escapeHtml(b.name)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
             <label class="form-label required">Outlet</label>
             <input type="text" class="form-control" id="pf-outlet" list="pf-outlet-datalist" autocomplete="off" placeholder="Ketik kode/nama outlet..." value="${Utils.escapeHtml(outletDisplay)}">
             <datalist id="pf-outlet-datalist">
-              ${outlets.map(o => `<option value="${o.code} — ${o.name}">`).join('')}
+              ${outlets.map(o => `<option value="${Utils.escapeHtml(o.code)} — ${Utils.escapeHtml(o.name)}">`).join('')}
             </datalist>
           </div>
           <div class="form-group">
@@ -853,7 +864,7 @@ const CasesPage = {
             <label class="form-label required">Lead Auditor</label>
             <select class="form-control" id="pf-lead">
               <option value="">— Pilih Auditor —</option>
-              ${auditors.map(a => `<option value="${a.id}" ${p?.leadAuditor === a.id ? 'selected' : ''}>${a.name} (${a.department})</option>`).join('')}
+              ${auditors.map(a => `<option value="${a.id}" ${p?.leadAuditor === a.id ? 'selected' : ''}>${Utils.escapeHtml(a.name)} (${Utils.escapeHtml(a.department)})</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
@@ -917,14 +928,14 @@ const CasesPage = {
       const outlet = DB.get('outlets').find(o => o.code === outletCode);
       if (outlet) {
         outletInput.value = `${outlet.code} — ${outlet.name}`;
-        if (provInput) provInput.value = outlet.province || province || '';
+        if (provInput) provInput.value = Utils.getProvName(outlet.province) || Utils.getProvName(province) || '';
         document.getElementById('pf-outlet-manager').value = outlet.outletManager || '';
         document.getElementById('pf-multi-unit-manager').value = outlet.multiUnitManager || '';
         document.getElementById('pf-area-manager').value = outlet.areaManager || '';
         document.getElementById('pf-distrik-manager').value = outlet.distrikManager || '';
       }
     } else if (provInput) {
-      provInput.value = province || '';
+      provInput.value = Utils.getProvName(province) || '';
     }
   },
 
@@ -955,7 +966,7 @@ const CasesPage = {
     const list    = document.getElementById('pf-outlet-datalist');
     const input   = document.getElementById('pf-outlet');
     if (!list) return;
-    list.innerHTML = outlets.map(o => `<option value="${o.code} — ${o.name}">`).join('');
+    list.innerHTML = outlets.map(o => `<option value="${Utils.escapeHtml(o.code)} — ${Utils.escapeHtml(o.name)}">`).join('');
     if (input && !input.dataset.skipClear) {
       input.value = '';
       document.getElementById('pf-province').value = '';
@@ -966,7 +977,7 @@ const CasesPage = {
     }
   },
 
-  savePlanning(id) {
+  async savePlanning(id) {
     if (!Perms.can('cases:planning:write')) {
       Toast.error('Anda tidak memiliki izin untuk membuat/mengubah Audit Planning.');
       return;
@@ -980,11 +991,16 @@ const CasesPage = {
     const brand       = document.getElementById('pf-brand')?.value;
     const outletVal   = document.getElementById('pf-outlet')?.value;
     const leadAuditor = document.getElementById('pf-lead')?.value;
-    const dateFrom    = document.getElementById('pf-datefrom')?.value;
-    const dateTo      = document.getElementById('pf-dateto')?.value;
+    const dateFrom    = document.getElementById('pf-datefrom')?.value || planDate;
+    const dateTo      = document.getElementById('pf-dateto')?.value || planDate;
     const scope       = document.getElementById('pf-scope')?.value;
 
-    if (!reportNo || !planDate || !brand || !outletVal || !leadAuditor) {
+    let finalReportNo = reportNo;
+    if (!id) {
+      finalReportNo = CasesPage._genReportNo(planDate);
+    }
+
+    if (!finalReportNo || !planDate || !brand || !outletVal || !leadAuditor) {
       Toast.error('Mohon lengkapi field yang wajib diisi (*).'); return;
     }
     const outletCode = outletVal.split(' — ')[0].trim();
@@ -1015,36 +1031,50 @@ const CasesPage = {
     const areaManager       = document.getElementById('pf-area-manager')?.value.trim() || '';
     const distrikManager    = document.getElementById('pf-distrik-manager')?.value.trim() || '';
 
-    const record = { reportNo, planningDate: planDate, status, trigger, triggerRef, auditType, department: dept, brand, outletCode, province, outletManager, multiUnitManager, areaManager, distrikManager, leadAuditor, auditorTeam: [], auditDateFrom: dateFrom, auditDateTo: dateTo, scope };
+    const record = { reportNo: finalReportNo, planningDate: planDate, status, trigger, triggerRef, auditType, department: dept, brand, outletCode, province, outletManager, multiUnitManager, areaManager, distrikManager, leadAuditor, auditorTeam: [], auditDateFrom: dateFrom, auditDateTo: dateTo, scope };
 
-    if (id) {
-      DB.update('audit_plannings', id, record);
-      AuditMetrics.syncPlanningRelationships(id, oldTrigger, oldTriggerRef, trigger, triggerRef);
-      Toast.success('Planning berhasil diperbarui.', 'Tersimpan');
-    } else {
-      const inserted = DB.insert('audit_plannings', record);
-      AuditMetrics.syncPlanningRelationships(inserted.id, null, null, trigger, triggerRef);
-      Toast.success('Audit Planning berhasil dibuat!', 'Berhasil');
+    try {
+      if (id) {
+        await DB.update('audit_plannings', id, record);
+        AuditMetrics.syncPlanningRelationships(id, oldTrigger, oldTriggerRef, trigger, triggerRef);
+        Toast.success('Planning berhasil diperbarui.', 'Tersimpan');
+      } else {
+        const inserted = await DB.insert('audit_plannings', record);
+        AuditMetrics.syncPlanningRelationships(inserted.id, null, null, trigger, triggerRef);
+        Toast.success('Audit Planning berhasil dibuat!', 'Berhasil');
+      }
+    } catch (e) {
+      Toast.error('Gagal menyimpan planning: ' + e.message);
+      return;
     }
     Modal.close();
     CasesPage.refresh();
   },
 
-  deletePlanning(id) {
+  async deletePlanning(id) {
     if (!confirm('Hapus planning ini? Semua hasil audit dan tindakan terkait juga akan dihapus.')) return;
-    // Remove bidirectional relationship before deleting
-    const planning = DB.find('audit_plannings', id);
-    if (planning) {
-      AuditMetrics.syncPlanningRelationships(id, planning.trigger, planning.triggerRef, null, null);
+    try {
+      const planning = DB.find('audit_plannings', id);
+      if (planning) {
+        AuditMetrics.syncPlanningRelationships(id, planning.trigger, planning.triggerRef, null, null);
+      }
+      // Remove child records from cache + best-effort server cleanup
+      const results = DB.get('audit_results').filter(r => r.planningId === id);
+      for (const r of results) {
+        const actions = DB.get('audit_actions').filter(a => a.resultId === r.id);
+        for (const a of actions) {
+          window.Supabase.delete('audit_actions', a.id).catch(() => {});
+        }
+        window.Supabase.delete('audit_results', r.id).catch(() => {});
+      }
+      DB.set('audit_actions', DB.get('audit_actions').filter(a => !results.some(r => r.id === a.resultId)));
+      DB.set('audit_results', DB.get('audit_results').filter(r => r.planningId !== id));
+      await DB.delete('audit_plannings', id);
+      Toast.info('Planning berhasil dihapus.', 'Dihapus');
+      CasesPage.refresh();
+    } catch (e) {
+      Toast.error('Gagal menghapus planning: ' + e.message);
     }
-    const results = DB.get('audit_results').filter(r => r.planningId === id);
-    results.forEach(r => {
-      DB.set('audit_actions', DB.get('audit_actions').filter(a => a.resultId !== r.id));
-    });
-    DB.set('audit_results', DB.get('audit_results').filter(r => r.planningId !== id));
-    DB.delete('audit_plannings', id);
-    Toast.info('Planning berhasil dihapus.', 'Dihapus');
-    CasesPage.refresh();
   },
 
   // ======================= RESULT MODAL =======================
@@ -1059,10 +1089,13 @@ const CasesPage = {
     const adminCats  = allCats.filter(c => c.nature === 'Administrative');
     const curNature  = r?.nature || 'Fraud';
     const activeCats = curNature === 'Administrative' ? adminCats : fraudCats;
+    // Resolve old category name→ID for backward compat with cached records
+    const rCat = r?.category || '';
+    const selectedCatId = activeCats.find(c => c.id === rCat)?.id || activeCats.find(c => c.name === rCat)?.id || '';
 
     Modal.open(`
       <div class="modal-header">
-        <div class="modal-title"><i data-lucide="alert-triangle"></i> ${isEdit ? 'Edit' : 'Tambah'} Temuan Audit — ${p?.reportNo}</div>
+        <div class="modal-title"><i data-lucide="alert-triangle"></i> ${isEdit ? 'Edit' : 'Tambah'} Temuan Audit — ${Utils.escapeHtml(p?.reportNo)}</div>
         <button class="modal-close" data-action="modal-close"><i data-lucide="x"></i></button>
       </div>
       <div class="modal-body">
@@ -1089,7 +1122,7 @@ const CasesPage = {
           <div class="form-group">
             <label class="form-label required">Kategori</label>
             <select class="form-control" id="rf-cat">
-              ${activeCats.map(c => `<option value="${c.name}" ${r?.category === c.name ? 'selected' : ''}>${c.name}</option>`).join('')}
+              ${activeCats.map(c => `<option value="${c.id}" ${selectedCatId === c.id ? 'selected' : ''}>${Utils.escapeHtml(c.name)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group" style="grid-column:1/-1">
@@ -1157,7 +1190,11 @@ const CasesPage = {
       : allCats.filter(c => !c.nature || c.nature === 'Fraud');
     const catSel = document.getElementById('rf-cat');
     if (catSel) {
-      catSel.innerHTML = activeCats.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+      const curVal = catSel.value;
+      catSel.innerHTML = activeCats.map(c => {
+        const selected = c.id === curVal || c.name === curVal;
+        return `<option value="${c.id}" ${selected ? 'selected' : ''}>${Utils.escapeHtml(c.name)}</option>`;
+      }).join('');
     }
     const lossGroup = document.getElementById('rf-loss-group');
     const lossInput = document.getElementById('rf-loss');
@@ -1167,10 +1204,10 @@ const CasesPage = {
     if (fraudsterSection) fraudsterSection.style.display = nature === 'Administrative' ? 'none' : '';
   },
 
-  saveResult(resultId, planningId) {
+  async saveResult(resultId, planningId) {
     const findingNo   = document.getElementById('rf-findingno')?.value.trim();
-    const findingDate = document.getElementById('rf-date')?.value;
-    const category    = document.getElementById('rf-cat')?.value;
+    const findingDate = document.getElementById('rf-date')?.value || new Date().toISOString().split('T')[0];
+    let category      = document.getElementById('rf-cat')?.value;
     const title       = document.getElementById('rf-title')?.value.trim();
     const severity    = document.getElementById('rf-severity')?.value;
     const status      = document.getElementById('rf-status')?.value;
@@ -1182,31 +1219,54 @@ const CasesPage = {
       Toast.error('Mohon lengkapi field yang wajib diisi.');
       return;
     }
+    // Resolve category name→ID for backward compat with old cached records
+    const cats = DB.get('fraud_categories');
+    if (!cats.some(c => c.id === category)) {
+      const byName = cats.find(c => c.name === category);
+      if (byName) category = byName.id;
+    }
     const fraudsterName     = document.getElementById('rf-fraudster-name')?.value.trim() || '';
     const fraudsterNik      = document.getElementById('rf-fraudster-nik')?.value.trim() || '';
     const fraudsterPosition = document.getElementById('rf-fraudster-position')?.value.trim() || '';
 
     const record = { planningId, findingNo, findingTitle: title, findingDate, category, severity, status, description, totalLoss, nature, fraudsterName, fraudsterNik, fraudsterPosition };
-    if (resultId) {
-      DB.update('audit_results', resultId, record);
-      Toast.success('Temuan berhasil diperbarui.', 'Tersimpan');
-    } else {
-      DB.insert('audit_results', record);
-      Toast.success('Temuan audit berhasil ditambahkan!', 'Berhasil');
+    try {
+      if (resultId) {
+        await DB.update('audit_results', resultId, record);
+        Toast.success('Temuan berhasil diperbarui.', 'Tersimpan');
+      } else {
+        const existing = DB.get('audit_results').find(r =>
+          r.planningId === planningId && r.findingNo === findingNo
+        );
+        if (existing) {
+          DB.set('audit_results', DB.get('audit_results').filter(r => r.id !== existing.id));
+        }
+        await DB.insert('audit_results', record);
+        Toast.success('Temuan audit berhasil ditambahkan!', 'Berhasil');
+      }
+      CasesPage._autoUpdateLaporanStatus(planningId);
+      CasesPage.viewPlanning(planningId, 'results');
+    } catch (e) {
+      Toast.error('Gagal menyimpan temuan: ' + e.message);
     }
-    // Auto-transition: Plan → In Progress when first finding is added
-    CasesPage._autoUpdateLaporanStatus(planningId);
-    CasesPage.viewPlanning(planningId, 'results');
   },
 
-  deleteResult(resultId, planningId) {
+  async deleteResult(resultId, planningId) {
     if (!confirm('Hapus temuan ini? Semua tindakan perbaikan terkait juga akan dihapus.')) return;
-    DB.set('audit_actions', DB.get('audit_actions').filter(a => a.resultId !== resultId));
-    DB.delete('audit_results', resultId);
-    Toast.info('Temuan berhasil dihapus.', 'Dihapus');
-    // Auto-transition: In Progress → Plan if no more findings
-    CasesPage._autoUpdateLaporanStatus(planningId);
-    CasesPage.viewPlanning(planningId, 'results');
+    try {
+      // Remove child actions from cache + best-effort server cleanup
+      const actions = DB.get('audit_actions').filter(a => a.resultId === resultId);
+      for (const a of actions) {
+        window.Supabase.delete('audit_actions', a.id).catch(() => {});
+      }
+      DB.set('audit_actions', DB.get('audit_actions').filter(a => a.resultId !== resultId));
+      await DB.delete('audit_results', resultId);
+      Toast.info('Temuan berhasil dihapus.', 'Dihapus');
+      CasesPage._autoUpdateLaporanStatus(planningId);
+      CasesPage.viewPlanning(planningId, 'results');
+    } catch (e) {
+      Toast.error('Gagal menghapus temuan: ' + e.message);
+    }
   },
 
   // ======================= ACTION MODAL =======================
@@ -1220,7 +1280,7 @@ const CasesPage = {
 
     Modal.open(`
       <div class="modal-header">
-        <div class="modal-title"><i data-lucide="check-square"></i> ${isEdit ? 'Edit' : 'Tambah'} Agreed Action — ${r?.findingNo || ''}
+        <div class="modal-title"><i data-lucide="check-square"></i> ${isEdit ? 'Edit' : 'Tambah'} Agreed Action — ${Utils.escapeHtml(r?.findingNo) || ''}
           ${isAdmin ? '<span class="badge" style="background:rgba(59,130,246,0.15);color:#3b82f6;font-size:10px;margin-left:8px">ADMIN</span>' : ''}
         </div>
         <button class="modal-close" data-action="modal-close"><i data-lucide="x"></i></button>
@@ -1240,7 +1300,7 @@ const CasesPage = {
             <select class="form-control" id="af-pic-dept">
               <option value="">— Pilih Department —</option>
               ${DB.get('departments').map(d =>
-                `<option value="${d.name}" ${(a?.picDepartment || '') === d.name ? 'selected' : ''}>${d.name}</option>`
+                `<option value="${d.name}" ${(a?.picDepartment || '') === d.name ? 'selected' : ''}>${Utils.escapeHtml(d.name)}</option>`
               ).join('')}
             </select>
           </div>
@@ -1314,7 +1374,7 @@ const CasesPage = {
     if (ugrp) ugrp.style.display = show ? '' : 'none';
   },
 
-  saveAction(actionId, resultId, planningId) {
+  async saveAction(actionId, resultId, planningId) {
     const actionNo       = document.getElementById('af-actno')?.value.trim();
     const picName        = document.getElementById('af-pic')?.value.trim();
     const picDepartment  = document.getElementById('af-pic-dept')?.value;
@@ -1369,31 +1429,41 @@ const CasesPage = {
     }
 
     const record = { resultId, planningId, actionNo, picName, picDepartment, status, actionTitle, dueDate, completionDate, description, amount, recovery, unrecovered };
-    if (actionId) {
-      DB.update('audit_actions', actionId, record);
-      Toast.success('Tindakan berhasil diperbarui.', 'Tersimpan');
-    } else {
-      DB.insert('audit_actions', record);
-      Toast.success('Agreed Action berhasil ditambahkan!', 'Berhasil');
+    try {
+      if (actionId) {
+        await DB.update('audit_actions', actionId, record);
+        Toast.success('Tindakan berhasil diperbarui.', 'Tersimpan');
+      } else {
+        await DB.insert('audit_actions', record);
+        Toast.success('Agreed Action berhasil ditambahkan!', 'Berhasil');
+      }
+      CasesPage.viewPlanning(planningId, 'results');
+    } catch (e) {
+      Toast.error('Gagal menyimpan tindakan: ' + e.message);
     }
-    CasesPage.viewPlanning(planningId, 'results');
   },
 
-  deleteAction(actionId, resultId, planningId) {
+  async deleteAction(actionId, resultId, planningId) {
     if (!confirm('Hapus tindakan perbaikan ini?')) return;
-    DB.delete('audit_actions', actionId);
-    Toast.info('Tindakan berhasil dihapus.', 'Dihapus');
-    CasesPage.viewPlanning(planningId, 'results');
+    try {
+      await DB.delete('audit_actions', actionId);
+      Toast.info('Tindakan berhasil dihapus.', 'Dihapus');
+      CasesPage.viewPlanning(planningId, 'results');
+    } catch (e) {
+      Toast.error('Gagal menghapus tindakan: ' + e.message);
+    }
   },
 
   // ======================= HELPERS =======================
-  _genReportNo() {
+  _genReportNo(dateStr) {
     const plannings = DB.get('audit_plannings');
-    const year = new Date().getFullYear();
-    const yearPlans = plannings.filter(p => p.reportNo && p.reportNo.startsWith(`LAP-${year}-`));
-    const nums = yearPlans.map(p => parseInt(p.reportNo.split('-')[2]) || 0);
+    const d = dateStr ? new Date(dateStr) : new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const yearPlans = plannings.filter(p => p.reportNo && /^LAP-\d{2}-\d{4}-\d+$/.test(p.reportNo) && p.reportNo.includes(`-${year}-`));
+    const nums = yearPlans.map(p => parseInt(p.reportNo.split('-')[3]) || 0);
     const next = (Math.max(0, ...nums) + 1).toString().padStart(3, '0');
-    return `LAP-${year}-${next}`;
+    return `LAP-${mm}-${year}-${next}`;
   },
 
   _genFindingNo(planningId) {

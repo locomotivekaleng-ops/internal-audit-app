@@ -5,6 +5,7 @@ await import('../../js/utils.js');
 await import('../../js/pages/wbs.js');
 
 const CURRENT_YEAR = new Date().getFullYear();
+const CURRENT_MONTH = String(new Date().getMonth() + 1).padStart(2, '0');
 
 beforeEach(() => {
   DB.set('wbs_cases', []);
@@ -61,24 +62,24 @@ describe('WBSPage.applyFilters', () => {
 describe('WBSPage._genCaseNo', () => {
   it('should generate next case number based on total count', () => {
     DB.set('wbs_cases', [
-      { caseNo: `WBS-${CURRENT_YEAR}-001` },
-      { caseNo: `WBS-${CURRENT_YEAR}-002` },
+      { caseNo: `WBS-${CURRENT_MONTH}-${CURRENT_YEAR}-001` },
+      { caseNo: `WBS-${CURRENT_MONTH}-${CURRENT_YEAR}-002` },
     ]);
     const result = WBSPage._genCaseNo();
-    expect(result).toBe(`WBS-${CURRENT_YEAR}-003`);
+    expect(result).toBe(`WBS-${CURRENT_MONTH}-${CURRENT_YEAR}-003`);
   });
 
   it('should generate first case number when none exist', () => {
     DB.set('wbs_cases', []);
     const result = WBSPage._genCaseNo();
-    expect(result).toBe(`WBS-${CURRENT_YEAR}-001`);
+    expect(result).toBe(`WBS-${CURRENT_MONTH}-${CURRENT_YEAR}-001`);
   });
 
   it('should start fresh for new year', () => {
     DB.set('wbs_cases', [
-      { caseNo: 'WBS-2023-005' },
+      { caseNo: 'WBS-12-2023-005' },
     ]);
     const result = WBSPage._genCaseNo();
-    expect(result).toBe(`WBS-${CURRENT_YEAR}-001`);
+    expect(result).toBe(`WBS-${CURRENT_MONTH}-${CURRENT_YEAR}-001`);
   });
 });

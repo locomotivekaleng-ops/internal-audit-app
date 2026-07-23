@@ -401,6 +401,7 @@ const ClosingAnalysisPage = {
   afterRender() {
     if (!ClosingAnalysisPage._pageWired) {
       ClosingAnalysisPage._pageWired = true;
+      Router._loadScript('cases');
       PageLifecycle.delegate('page-content', {
         change: {
           '[data-filter="trigger"]': (e, target) => this.setFilter('trigger', target.value),
@@ -410,7 +411,8 @@ const ClosingAnalysisPage = {
           '#ca-reset-btn': () => this.resetFilters(),
           '[data-action="prev-page"]': () => this.changePage(this.page - 1),
           '[data-action="next-page"]': () => this.changePage(this.page + 1),
-          '[data-action="view-planning"]': (e, target) => {
+          '[data-action="view-planning"]': async (e, target) => {
+            await Router._loadScript('cases');
             CasesPage?.viewPlanning?.(target.dataset.planningId, target.dataset.tab);
           },
           '[data-action="dt-sort"]': (e, target) => this.setSort(target.dataset.key),

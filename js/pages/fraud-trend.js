@@ -83,7 +83,11 @@ const FraudTrendPage = {
     const cats      = DB.get('fraud_categories');
     const now       = Utils.parseLocalDate(f.dateTo) || new Date();
     const ap12Start = new Date(now); ap12Start.setFullYear(ap12Start.getFullYear() - 1);
-    const ap3Start  = new Date(now); ap3Start.setMonth(ap3Start.getMonth() - 3);
+    const ap3Start  = new Date(now);
+    ap3Start.setMonth(ap3Start.getMonth() - 3);
+    if (ap3Start.getDate() !== now.getDate()) {
+      ap3Start.setDate(0);
+    }
     const ap12Str   = ap12Start.toISOString().split('T')[0];
     const ap3Str    = ap3Start.toISOString().split('T')[0];
     const toStr     = f.dateTo;
@@ -117,7 +121,7 @@ const FraudTrendPage = {
           <input type="date" class="form-control" id="ft-date-to" value="${f.dateTo}" data-filter="dateTo" />
           <select class="form-control" data-filter="department">
             <option value="">All Departments</option>
-            ${depts.map(d=>`<option value="${d.id}" ${f.department===d.id?'selected':''}>${d.name}</option>`).join('')}
+            ${depts.map(d=>`<option value="${d.id}" ${f.department===d.id?'selected':''}>${Utils.escapeHtml(d.name)}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -169,16 +173,21 @@ const FraudTrendPage = {
                   : catRows.map((r, i) => `
                   <tr>
                     <td class="col-number">${i+1}.</td>
-                    <td class="col-bold">${r.name}</td>
-                    <td>${Utils.formatIDRFull(Math.round(r.loss12))}</td>
-                    <td>${r.cnt12.toFixed(2)}</td>
-                    <td>${Utils.formatIDRFull(Math.round(r.loss3))}</td>
-                    <td>${r.cnt3.toFixed(2)}</td>
-                    <td class="${parseFloat(r.pctIDR) < 0 ? 'text-green' : 'text-red'}">${r.pctIDR}%</td>
-                    <td class="${parseFloat(r.pctCnt) < 0 ? 'text-green' : 'text-red'}">${r.pctCnt}%</td>
+                    <td class="col-bold">${Utils.escapeHtml(r.name)}</td>
+                    <td class="text-right">${Utils.formatIDRFull(Math.round(r.loss12))}</td>
+                    <td class="text-right">${r.cnt12.toFixed(2)}</td>
+                    <td class="text-right">${Utils.formatIDRFull(Math.round(r.loss3))}</td>
+                    <td class="text-right">${r.cnt3.toFixed(2)}</td>
+                    <td class="text-right ${parseFloat(r.pctIDR) < 0 ? 'text-green' : 'text-red'}">${r.pctIDR}%</td>
+                    <td class="text-right ${parseFloat(r.pctCnt) < 0 ? 'text-green' : 'text-red'}">${r.pctCnt}%</td>
                   </tr>`).join('')}
               </tbody>
             </table>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.5">
+              * AP12M = rata-rata per bulan selama 12 bulan sebelum <code>dateTo</code>;
+              AP3M = rata-rata per bulan selama 3 bulan sebelum <code>dateTo</code>.
+              Kedua metrik menggunakan rolling window dan tidak terpengaruh filter <code>dateFrom</code>.
+            </div>
           </div>
         </div>
       </div>`;

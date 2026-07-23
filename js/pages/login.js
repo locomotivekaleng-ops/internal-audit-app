@@ -33,28 +33,17 @@ const LoginPage = {
             </div>
             <div class="form-group">
               <label class="form-label">Password</label>
-              <input type="password" class="form-control" id="login-password" placeholder="Enter your password" autocomplete="current-password" required />
+              <div class="input-icon-wrapper">
+                <input type="password" class="form-control" id="login-password" placeholder="Enter your password" autocomplete="current-password" required />
+                <button type="button" class="input-icon-btn" id="toggle-password" tabindex="-1" aria-label="Show password">
+                  <i data-lucide="eye"></i>
+                </button>
+              </div>
             </div>
             <button type="submit" class="btn login-btn" id="login-btn">
               Sign In
             </button>
           </form>
-
-          <div class="demo-accounts">
-            <p>Demo Accounts (click to fill)</p>
-            <div class="demo-account-item" data-username="admin" data-password="admin123">
-              <span>admin</span><span class="role-tag">Superadmin</span>
-            </div>
-            <div class="demo-account-item" data-username="manager" data-password="123">
-              <span>manager</span><span class="role-tag">Manager Audit</span>
-            </div>
-            <div class="demo-account-item" data-username="auditor" data-password="123">
-              <span>auditor</span><span class="role-tag">Auditor</span>
-            </div>
-            <div class="demo-account-item" data-username="divisi" data-password="123">
-              <span>divisi</span><span class="role-tag">Auditee</span>
-            </div>
-          </div>
 
           <div class="login-footer">
             Internal Audit Division &mdash; Confidential System
@@ -66,6 +55,7 @@ const LoginPage = {
 
   afterRender() {
     PageLifecycle.on('login-form', 'submit', (e) => this.handleLogin(e));
+    PageLifecycle.on('toggle-password', 'click', () => this.togglePassword());
     if (!this._eventsWired) {
       this._eventsWired = true;
       PageLifecycle.delegate('app-root', {
@@ -78,7 +68,16 @@ const LoginPage = {
     }
   },
 
-  handleLogin(e) {
+  togglePassword() {
+    const input = document.getElementById('login-password');
+    const icon = document.querySelector('#toggle-password i');
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    icon.setAttribute('data-lucide', isPassword ? 'eye-off' : 'eye');
+    if (window.lucide) lucide.createIcons();
+  },
+
+  async handleLogin(e) {
     e.preventDefault();
     const username = document.getElementById('login-username').value;
     const password = document.getElementById('login-password').value;
@@ -88,19 +87,17 @@ const LoginPage = {
     btn.textContent = 'Signing in…';
     btn.disabled = true;
 
-    setTimeout(() => {
-      const session = Auth.login(username, password);
-      if (session) {
-        errEl.classList.add('hidden');
-        Toast.success(`Welcome back, ${session.name}!`, 'Signed In');
-        Router.navigate('dashboard');
-      } else {
-        errEl.classList.remove('hidden');
-        document.getElementById('login-error-text').textContent = 'Invalid username or password.';
-        btn.textContent = 'Sign In';
-        btn.disabled = false;
-      }
-    }, 400);
+    try {
+      const session = await Auth.login(username, password);
+      errEl.classList.add('hidden');
+      Toast.success('Welcome back, ' + session.name + '!', 'Signed In');
+      Router.navigate('dashboard');
+    } catch (err) {
+      errEl.classList.remove('hidden');
+      document.getElementById('login-error-text').textContent = err.message || 'Invalid username or password.';
+      btn.textContent = 'Sign In';
+      btn.disabled = false;
+    }
   },
 
   fillDemo(u, p) {

@@ -59,6 +59,7 @@ const DashboardPage = {
 
     // WBS & FDS filtered
     const wbsFiltered = DashboardPage.applyWbsFilters(wbs);
+    const fdsFiltered = DashboardPage.applyFdsFilters(fds);
 
     // ---- Planning KPIs ----
     const totalPlannings    = filteredPlans.length;
@@ -70,8 +71,8 @@ const DashboardPage = {
     const wbsTotal    = wbsFiltered.length;
     const wbsClosed   = wbsFiltered.filter(c => c.status === 'Closed').length;
     const wbsOnHold   = wbsFiltered.filter(c => c.status === 'On Hold').length;
-    const fdsTotal    = fds.length;
-    const fdsClosed   = fds.filter(c => c.status === 'Closed').length;
+    const fdsTotal    = fdsFiltered.length;
+    const fdsClosed   = fdsFiltered.filter(c => c.status === 'Closed').length;
 
     // ---- Financial KPIs (fraud findings only for Loss/Recovery) ----
     const fraudResults  = filteredResults.filter(r => !r.nature || r.nature !== 'Administrative');
@@ -350,6 +351,17 @@ const DashboardPage = {
     });
   },
 
+  applyFdsFilters(fds) {
+    const f = DashboardPage.filters;
+    return fds.filter(c => {
+      if (f.dateFrom && c.detectionDate < f.dateFrom) return false;
+      if (f.dateTo   && c.detectionDate > f.dateTo)   return false;
+      if (f.brand    && c.brand !== f.brand)           return false;
+      if (f.province && c.province !== f.province)     return false;
+      return true;
+    });
+  },
+
   afterRender() {
     if (!DashboardPage._pageWired) {
       DashboardPage._pageWired = true;
@@ -411,15 +423,7 @@ const DashboardPage = {
     const filteredActions = actions.filter(a => planIds.has(a.planningId) && filteredResultIds.has(a.resultId));
     const wbsFiltered   = DashboardPage.applyWbsFilters(wbs);
 
-    // Filter FDS by brand/province if set
-    const f = DashboardPage.filters;
-    const fdsFiltered = fds.filter(c => {
-      if (f.dateFrom && c.detectionDate < f.dateFrom) return false;
-      if (f.dateTo   && c.detectionDate > f.dateTo)   return false;
-      if (f.brand    && c.brand !== f.brand)       return false;
-      if (f.province && c.province !== f.province) return false;
-      return true;
-    });
+    const fdsFiltered = DashboardPage.applyFdsFilters(fds);
 
     let modalTitle = '';
     let modalBody = '';

@@ -28,6 +28,7 @@ const OutletProfilePage = {
   afterRender() {
     if (!OutletProfilePage._pageWired) {
       OutletProfilePage._pageWired = true;
+      Router._loadScript('cases');
       PageLifecycle.delegate('page-content', {
         click: {
           '[data-action="op-tab"]': (e, target) => this.setTab(target.dataset.tab),
@@ -119,7 +120,7 @@ const OutletProfilePage = {
               <h3 style="font-size:18px;font-weight:700"><span class="col-mono">${outlet.code}</span> — ${Utils.escapeHtml(outlet.name)}</h3>
               <div style="display:flex;gap:12px;margin-top:4px;font-size:12px;color:var(--text-muted)">
                 <span><strong style="color:var(--text-secondary)">Brand:</strong> ${Utils.statusBadge(Utils.getBrandName(outlet.brand))}</span>
-                <span><strong style="color:var(--text-secondary)">Provinsi:</strong> ${Utils.getProvName(outlet.province)}</span>
+                <span><strong style="color:var(--text-secondary)">Provinsi:</strong> ${Utils.escapeHtml(Utils.getProvName(outlet.province))}</span>
               </div>
             </div>
             <button class="btn btn-secondary btn-sm" data-action="op-export">
@@ -219,10 +220,10 @@ const OutletProfilePage = {
                 const auditors = DB.get('auditors');
                 const lead = auditors.find(a => a.id === p.leadAuditor);
                 return `<tr>
-                  <td class="col-bold" style="font-size:12px">${p.reportNo}</td>
+                  <td class="col-bold" style="font-size:12px">${Utils.escapeHtml(p.reportNo)}</td>
                   <td style="font-size:12px">${Utils.formatDate(p.planningDate)}</td>
-                  <td><span class="badge ${p.trigger === 'WBS' ? 'badge-purple' : p.trigger === 'FDS' ? 'badge-cyan' : 'badge-gray'}">${p.trigger}</span></td>
-                  <td style="font-size:12px">${lead ? lead.name : '-'}</td>
+                  <td><span class="badge ${p.trigger === 'WBS' ? 'badge-purple' : p.trigger === 'FDS' ? 'badge-cyan' : 'badge-gray'}">${Utils.escapeHtml(p.trigger)}</span></td>
+                  <td style="font-size:12px">${lead ? Utils.escapeHtml(lead.name) : '-'}</td>
                   <td><span class="badge ${results.length > 0 ? 'badge-amber' : 'badge-gray'}">${results.length}</span></td>
                   <td>${fraudCount > 0 ? `<span class="badge badge-red">${fraudCount}</span>` : '<span style="color:var(--text-muted);font-size:12px">-</span>'}</td>
                   <td>${OutletProfilePage._statusBadge(p.status)}</td>
@@ -268,7 +269,7 @@ const OutletProfilePage = {
                   ? `<span style="font-size:11px">${Utils.escapeHtml(r.fraudsterName)}${r.fraudsterPosition ? ' (' + Utils.escapeHtml(r.fraudsterPosition) + ')' : ''}</span>`
                   : '<span style="color:var(--text-muted);font-size:11px">-</span>';
                 return `<tr>
-                  <td class="col-mono" style="font-size:11px">${r.findingNo}</td>
+                  <td class="col-mono" style="font-size:11px">${Utils.escapeHtml(r.findingNo)}</td>
                   <td style="font-size:12px;max-width:200px">${Utils.escapeHtml(r.findingTitle)}</td>
                   <td style="font-size:12px">${Utils.statusBadge(Utils.getCatName(r.category))}</td>
                   <td>${r.nature === 'Fraud'
@@ -276,7 +277,7 @@ const OutletProfilePage = {
                     : `<span class="badge badge-blue">Administratif</span>`}</td>
                   <td>${Utils.severityBadge(r.severity)}</td>
                   <td style="font-size:12px;font-weight:600">Rp ${Utils.formatIDR(r.totalLoss)}</td>
-                  <td><span class="badge ${r.status === 'Closed' ? 'badge-green' : 'badge-amber'}">${r.status || 'Open'}</span></td>
+                  <td><span class="badge ${r.status === 'Closed' ? 'badge-green' : 'badge-amber'}">${Utils.escapeHtml(r.status || 'Open')}</span></td>
                   <td>${fraudInfo}</td>
                 </tr>`;
               }).join('')}
@@ -318,10 +319,10 @@ const OutletProfilePage = {
                 const isOverdue = a.status === 'Open' && a.dueDate && a.dueDate < new Date().toISOString().split('T')[0];
                 const finding = DB.get('audit_results').find(r => r.id === a.resultId);
                 return `<tr>
-                  <td class="col-mono" style="font-size:11px">${a.actionNo}</td>
-                  <td style="font-size:11px;color:var(--text-muted)">${finding ? finding.findingNo : '-'}</td>
+                  <td class="col-mono" style="font-size:11px">${Utils.escapeHtml(a.actionNo)}</td>
+                  <td style="font-size:11px;color:var(--text-muted)">${finding ? Utils.escapeHtml(finding.findingNo) : '-'}</td>
                   <td style="font-size:12px;max-width:180px">${Utils.escapeHtml(a.actionTitle)}</td>
-                  <td style="font-size:11px">${a.picName}</td>
+                  <td style="font-size:11px">${Utils.escapeHtml(a.picName)}</td>
                   <td style="font-size:11px;font-weight:600">Rp ${Utils.formatIDR(a.amount || 0)}</td>
                   <td style="font-size:11px${isOverdue ? ';color:#ef4444;font-weight:600' : ''}">${Utils.formatDate(a.dueDate)}${isOverdue ? ' ⚠' : ''}</td>
                   <td style="font-size:11px;font-weight:600;color:${a.status === 'Closed' && a.recovery > 0 ? '#10b981' : 'var(--text-muted)'}">
@@ -344,13 +345,12 @@ const OutletProfilePage = {
       'Completed': 'badge-green',
       'Cancelled': 'badge-red',
     };
-    return `<span class="badge ${map[status] || 'badge-gray'}">${status || '-'}</span>`;
+    return `<span class="badge ${map[status] || 'badge-gray'}">${Utils.escapeHtml(status || '-')}</span>`;
   },
 
-  _viewPlanning(id) {
-    if (window.CasesPage && CasesPage.viewPlanning) {
-      CasesPage.viewPlanning(id);
-    }
+  async _viewPlanning(id) {
+    await Router._loadScript('cases');
+    CasesPage?.viewPlanning?.(id);
   },
 
   // ---- Searchable Combobox (portal pattern - appended to body) ----
@@ -370,6 +370,10 @@ const OutletProfilePage = {
         if (input && (input === e.target || input.contains(e.target))) return;
         if (dropdown.contains(e.target)) return;
         dropdown.classList.add('hidden');
+      });
+      document.addEventListener('mousedown', (e) => {
+        const item = e.target.closest('[data-code]');
+        if (item) OutletProfilePage._selectOutletFromCombobox(item.dataset.code);
       });
     }
     return el;
@@ -456,9 +460,10 @@ const OutletProfilePage = {
           display = before + '<span class="combobox-highlight">' + match + '</span>' + after;
         }
       }
-      return `<div class="combobox-item" onmousedown="OutletProfilePage._selectOutletFromCombobox('${o.code}')">
+      const escapedCode = Utils.escapeHtml(o.code);
+      return `<div class="combobox-item" data-code="${escapedCode}">
         <span class="combobox-item-label">${display}</span>
-        <span class="combobox-item-brand">${Utils.getBrandName(o.brand)}</span>
+        <span class="combobox-item-brand">${Utils.escapeHtml(Utils.getBrandName(o.brand))}</span>
       </div>`;
     }).join('');
   },
@@ -595,10 +600,10 @@ const OutletProfilePage = {
             <tbody>
               ${plannings.map(p => `
                 <tr>
-                  <td class="col-bold" style="font-size:12px">${p.reportNo}</td>
+                  <td class="col-bold" style="font-size:12px">${Utils.escapeHtml(p.reportNo)}</td>
                   <td style="font-size:11px">${Utils.formatDate(p.planningDate)}</td>
                   <td style="font-size:11px">${Utils.formatDate(p.auditDateFrom)} — ${Utils.formatDate(p.auditDateTo)}</td>
-                  <td><span class="badge ${p.trigger === 'WBS' ? 'badge-purple' : p.trigger === 'FDS' ? 'badge-cyan' : 'badge-gray'}">${p.trigger}</span></td>
+                  <td><span class="badge ${p.trigger === 'WBS' ? 'badge-purple' : p.trigger === 'FDS' ? 'badge-cyan' : 'badge-gray'}">${Utils.escapeHtml(p.trigger)}</span></td>
                   <td>${Utils.laporanBadge(p.status)}</td>
                   <td>
                     <button class="btn btn-icon btn-secondary btn-sm" data-action="view-planning-from-outlet" data-planning-id="${p.id}" title="Lihat Detail">

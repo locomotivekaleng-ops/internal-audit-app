@@ -4,6 +4,11 @@
 
 const MasterPage = {
   activeTab: 'brands',
+  page:      { brands:1, fraud_categories:1, outlets:1, provinces:1, departments:1 },
+  perPage:   { brands:10, fraud_categories:10, outlets:15, provinces:20, departments:20 },
+  sortKey:   { brands:'name', fraud_categories:'name', outlets:'code', provinces:'name', departments:'name' },
+  sortDir:   { brands:'asc', fraud_categories:'asc', outlets:'asc', provinces:'asc', departments:'asc' },
+  search:    { outlets:'' },
 
   render() {
     if (!Auth.requireAuth()) return;
@@ -24,7 +29,6 @@ const MasterPage = {
       PageLifecycle.delegate('page-content', {
         click: {
           '[data-action="master-tab"]': (e, target) => this.setTab(target.dataset.tab),
-          '[data-action="master-import"]': () => this.openImportModal(),
           '[data-action="master-add"][data-entity="brand"]': () => this.openBrandModal(null),
           '[data-action="master-add"][data-entity="category"]': () => this.openCatModal(null),
           '[data-action="master-add"][data-entity="outlet"]': () => this.openOutletModal(null),
@@ -52,9 +56,27 @@ const MasterPage = {
             OutletProfilePage.selectedOutletCode = target.dataset.outletCode;
             Router.navigate('outlet-profile');
           },
+          '[data-action="dt-sort"]': (e, target) => {
+            const key = target.dataset.key;
+            const tab = MasterPage.activeTab;
+            if (MasterPage.sortKey[tab] === key) {
+              MasterPage.sortDir[tab] = MasterPage.sortDir[tab] === 'asc' ? 'desc' : 'asc';
+            } else {
+              MasterPage.sortKey[tab] = key;
+              MasterPage.sortDir[tab] = 'asc';
+            }
+            MasterPage.page[tab] = 1;
+            MasterPage.refreshTab();
+          },
+          '[data-action="dt-page"]': (e, target) => {
+            const tab = MasterPage.activeTab;
+            MasterPage.page[tab] = parseInt(target.dataset.page, 10);
+            MasterPage.refreshTab();
+          },
         }
       });
     }
+    MasterPage.wireSearch();
     if (!MasterPage._modalWired) {
       MasterPage._modalWired = true;
       PageLifecycle.delegate('modal-overlay', {
@@ -68,7 +90,6 @@ const MasterPage = {
             else if (entity === 'province') this.saveProvince(id);
             else if (entity === 'department') this.saveDept(id);
           },
-          '[data-action="master-process-import"]': () => this.processImport(),
         },
         change: {
           '[data-action="master-file-select"]': (e) => this.handleFileSelect(e),
@@ -120,47 +141,104 @@ const MasterPage = {
   },
 
   // ---- BRANDS ----
+  _sortData(tab, data) {
+    const key = MasterPage.sortKey[tab];
+    const dir = MasterPage.sortDir[tab];
+    return Utils.sortBy(data, key, dir);
+  },
+
+  _getSortCfg(tab) {
+    return { key: MasterPage.sortKey[tab], dir: MasterPage.sortDir[tab], onChange: 'MasterPage.setSort' };
+  },
+
+  _pagHtml(page, perPage, total) {
+    const totalPages = Math.max(1, Math.ceil(total / perPage));
+    const start = (page - 1) * perPage + 1;
+    const end = Math.min(page * perPage, total);
+    let pages = '';
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) {
+        pages += `<button class="page-btn ${i === page ? 'active' : ''}" data-action="dt-page" data-page="${i}">${i}</button>`;
+      } else if (i === page - 2 || i === page + 2) {
+        pages += `<span style="color:var(--text-muted);padding:0 4px">…</span>`;
+      }
+    }
+    return `
+      <div class="pagination">
+        <span>${start}–${end} of ${total} records</span>
+        <div class="pagination-controls">
+          <button class="page-btn" data-action="dt-page" data-page="${Math.max(1, page-1)}" ${page<=1?'disabled':''} aria-label="Previous page">
+            <i data-lucide="chevron-left" style="width:12px;height:12px"></i>
+          </button>
+          ${pages}
+          <button class="page-btn" data-action="dt-page" data-page="${Math.min(totalPages, page+1)}" ${page>=totalPages?'disabled':''} aria-label="Next page">
+            <i data-lucide="chevron-right" style="width:12px;height:12px"></i>
+          </button>
+        </div>
+      </div>`;
+  },
+
   buildBrandsTab() {
-    const brands = DB.get('brands');
+    const tab = 'brands';
+    let brands = DB.get('brands');
+    brands = MasterPage._sortData(tab, brands);
+    const page = MasterPage.page[tab];
+    const perPage = MasterPage.perPage[tab];
+    const total = brands.length;
+    const paged = DataTable.pageItems(brands, page, perPage);
+    const offset = (page - 1) * perPage;
+
+    const columns = [
+      { key: '#', label: '#', sortable: false, class: 'col-number', width: '40px' },
+      { key: 'code', label: 'ID', class: 'col-mono' },
+      { key: 'name', label: 'Brand Name' },
+      { key: 'color', label: 'Color', class: 'col-mono' },
+      { key: 'description', label: 'Description' },
+      { key: 'actions', label: 'Actions', sortable: false, width: '80px' },
+    ];
+
+    const buildRow = (b, i) => {
+      const id = b.code || b.id;
+      return `<tr>
+        <td class="col-number">${offset + i + 1}</td>
+        <td class="col-mono">${id}</td>
+        <td class="col-bold">
+          <span style="display:inline-flex;align-items:center;gap:8px">
+            <span style="width:12px;height:12px;border-radius:50%;background:${Utils.escapeHtml(b.color)}"></span>
+            ${Utils.escapeHtml(b.name)}
+          </span>
+        </td>
+        <td><span class="col-mono" style="color:${Utils.escapeHtml(b.color)}">${Utils.escapeHtml(b.color)}</span></td>
+        <td style="font-size:11px;color:var(--text-muted)">${Utils.escapeHtml(b.description||'')}</td>
+        <td><div class="flex gap-2">
+          <button class="btn btn-icon btn-secondary btn-sm" data-action="master-edit" data-entity="brand" data-entity-id="${id}"><i data-lucide="pencil"></i></button>
+          <button class="btn btn-icon btn-danger btn-sm" data-action="master-delete" data-entity="brand" data-entity-id="${id}"><i data-lucide="trash-2"></i></button>
+        </div></td>
+      </tr>`;
+    };
+
+    const table = DataTable.render({ columns, data: paged, buildRow, sort: MasterPage._getSortCfg(tab) });
+    const pagination = MasterPage._pagHtml(page, perPage, total);
+
     return `
       <div class="card">
         <div class="card-header">
-          <div class="card-title"><i data-lucide="tag"></i> Brands</div>
+          <div class="card-title"><i data-lucide="tag"></i> Brands (${total})</div>
           <div class="flex gap-2">
-            <button class="btn btn-secondary btn-sm" data-action="master-import"><i data-lucide="upload"></i> Import CSV</button>
             <button class="btn btn-primary btn-sm" data-action="master-add" data-entity="brand"><i data-lucide="plus"></i> Add Brand</button>
           </div>
         </div>
         <div class="card-body" style="padding-top:0">
           <div class="data-table-wrapper">
-            <table class="data-table">
-              <thead><tr><th>#</th><th>ID</th><th>Brand Name</th><th>Color</th><th>Description</th><th>Actions</th></tr></thead>
-              <tbody>
-                ${brands.map((b,i) => `<tr>
-                  <td class="col-number">${i+1}</td>
-                  <td class="col-mono">${b.id}</td>
-                  <td class="col-bold">
-                    <span style="display:inline-flex;align-items:center;gap:8px">
-                      <span style="width:12px;height:12px;border-radius:50%;background:${b.color}"></span>
-                      ${b.name}
-                    </span>
-                  </td>
-                  <td><span class="col-mono" style="color:${b.color}">${b.color}</span></td>
-                  <td style="font-size:11px;color:var(--text-muted)">${b.description||''}</td>
-                  <td><div class="flex gap-2">
-                    <button class="btn btn-icon btn-secondary btn-sm" data-action="master-edit" data-entity="brand" data-entity-id="${b.id}"><i data-lucide="pencil"></i></button>
-                    <button class="btn btn-icon btn-danger btn-sm" data-action="master-delete" data-entity="brand" data-entity-id="${b.id}"><i data-lucide="trash-2"></i></button>
-                  </div></td>
-                </tr>`).join('')}
-              </tbody>
-            </table>
+            ${table}
+            ${pagination}
           </div>
         </div>
       </div>`;
   },
 
   openBrandModal(id) {
-    const b = id ? DB.find('brands', id) : null;
+    const b = id ? (DB.find('brands', id) || DB.get('brands').find(br => br.code === id)) : null;
     Modal.open(`
       <div class="modal-header">
         <div class="modal-title"><i data-lucide="tag"></i> ${b ? 'Edit' : 'Add'} Brand</div>
@@ -170,7 +248,7 @@ const MasterPage = {
         <div class="form-grid form-grid-2">
           <div class="form-group">
             <label class="form-label required">Brand ID (code)</label>
-            <input type="text" class="form-control" id="br-id" value="${Utils.escapeHtml(b?.id||'')}" ${b?'readonly':''} placeholder="e.g. PHD" />
+            <input type="text" class="form-control" id="br-id" value="${Utils.escapeHtml(b?.code || b?.id||'')}" ${b?'readonly':''} placeholder="e.g. PHD" />
           </div>
           <div class="form-group">
             <label class="form-label required">Brand Name</label>
@@ -178,7 +256,7 @@ const MasterPage = {
           </div>
           <div class="form-group">
             <label class="form-label required">Color</label>
-            <input type="text" class="form-control" id="br-color" value="${b?.color||'#3b82f6'}" placeholder="e.g. #3b82f6" />
+            <input type="color" class="form-control" id="br-color" value="${b?.color||'#3b82f6'}" style="height:42px;padding:4px;cursor:pointer" />
           </div>
           <div class="form-group" style="grid-column:1/-1">
             <label class="form-label">Description</label>
@@ -193,7 +271,7 @@ const MasterPage = {
     if (window.lucide) lucide.createIcons();
   },
 
-  saveBrand(id) {
+  async saveBrand(id) {
     const data = {
       id:          document.getElementById('br-id').value.trim(),
       name:        document.getElementById('br-name').value.trim(),
@@ -201,17 +279,20 @@ const MasterPage = {
       description: document.getElementById('br-desc').value,
     };
     if (!data.id || !data.name) { Toast.error('ID and Name are required.'); return; }
-    if (id) {
-      const brands = DB.get('brands').map(b => b.id === id ? { ...b, ...data } : b);
-      DB.set('brands', brands);
-      Toast.success('Brand updated.');
-    } else {
-      if (DB.get('brands').find(b => b.id === data.id)) { Toast.error('Brand ID already exists.'); return; }
-      DB.insert('brands', data);
-      Toast.success('Brand added.');
+    try {
+      if (id) {
+        await DB.update('brands', id, data);
+        Toast.success('Brand updated.');
+      } else {
+        if (DB.get('brands').find(b => (b.id === data.id || b.code === data.id))) { Toast.error('Brand ID already exists.'); return; }
+        await DB.insert('brands', data);
+        Toast.success('Brand added.');
+      }
+      Modal.close();
+      MasterPage.refreshTab();
+    } catch (e) {
+      Toast.error('Gagal menyimpan brand: ' + e.message);
     }
-    Modal.close();
-    MasterPage.refreshTab();
   },
 
   _countRefs(table, field, value) {
@@ -225,52 +306,73 @@ const MasterPage = {
       Toast.error(`Tidak dapat menghapus brand: masih digunakan oleh ${refs} data transaksi. Hapus atau ubah referensi terlebih dahulu.`);
       return;
     }
-    Modal.confirm('Delete Brand', 'Delete this brand?', () => {
-      DB.delete('brands', id);
-      Toast.success('Brand deleted.');
-      MasterPage.refreshTab();
+    Modal.confirm('Delete Brand', 'Delete this brand?', async () => {
+      try {
+        await DB.delete('brands', id);
+        Toast.success('Brand deleted.');
+        MasterPage.refreshTab();
+      } catch (e) {
+        Toast.error('Gagal menghapus brand: ' + e.message);
+      }
     });
   },
 
   // ---- CATEGORIES ----
   buildCategoriesTab() {
-    const cats = DB.get('fraud_categories');
+    const tab = 'fraud_categories';
+    let cats = DB.get('fraud_categories');
+    cats = MasterPage._sortData(tab, cats);
+    const page = MasterPage.page[tab];
+    const perPage = MasterPage.perPage[tab];
+    const total = cats.length;
+    const paged = DataTable.pageItems(cats, page, perPage);
+    const offset = (page - 1) * perPage;
+
+    const columns = [
+      { key: '#', label: '#', sortable: false, class: 'col-number', width: '40px' },
+      { key: 'name', label: 'Category Name' },
+      { key: 'nature', label: 'Tipe (Nature)' },
+      { key: 'color', label: 'Color', class: 'col-mono' },
+      { key: 'description', label: 'Description' },
+      { key: 'actions', label: 'Actions', sortable: false, width: '80px' },
+    ];
+
+    const buildRow = (c, i) => `<tr>
+      <td class="col-number">${offset + i + 1}</td>
+      <td class="col-bold">
+        <span style="display:inline-flex;align-items:center;gap:8px">
+          <span style="width:12px;height:12px;border-radius:4px;background:${c.color}"></span>
+          ${Utils.escapeHtml(c.name)}
+        </span>
+      </td>
+      <td>
+        ${c.nature === 'Administrative'
+          ? `<span class="badge badge-purple" style="background:rgba(59,130,246,0.12);color:#3b82f6">Administratif</span>`
+          : `<span class="badge badge-red" style="background:rgba(239,68,68,0.12);color:#ef4444">Fraud</span>`}
+      </td>
+      <td><span class="col-mono" style="color:${c.color}">${c.color}</span></td>
+      <td style="font-size:11px;color:var(--text-muted)">${Utils.escapeHtml(c.description||'')}</td>
+      <td><div class="flex gap-2">
+        <button class="btn btn-icon btn-secondary btn-sm" data-action="master-edit" data-entity="category" data-entity-id="${c.id}"><i data-lucide="pencil"></i></button>
+        <button class="btn btn-icon btn-danger btn-sm" data-action="master-delete" data-entity="category" data-entity-id="${c.id}"><i data-lucide="trash-2"></i></button>
+      </div></td>
+    </tr>`;
+
+    const table = DataTable.render({ columns, data: paged, buildRow, sort: MasterPage._getSortCfg(tab) });
+    const pagination = MasterPage._pagHtml(page, perPage, total);
+
     return `
       <div class="card">
         <div class="card-header">
-          <div class="card-title"><i data-lucide="alert-triangle"></i> Fraud & Admin Categories</div>
+          <div class="card-title"><i data-lucide="alert-triangle"></i> Fraud & Admin Categories (${total})</div>
           <div class="flex gap-2">
-            <button class="btn btn-secondary btn-sm" data-action="master-import"><i data-lucide="upload"></i> Import CSV</button>
             <button class="btn btn-primary btn-sm" data-action="master-add" data-entity="category"><i data-lucide="plus"></i> Add Category</button>
           </div>
         </div>
         <div class="card-body" style="padding-top:0">
           <div class="data-table-wrapper">
-            <table class="data-table">
-              <thead><tr><th>#</th><th>Category Name</th><th>Tipe (Nature)</th><th>Color</th><th>Description</th><th>Actions</th></tr></thead>
-              <tbody>
-                ${cats.map((c,i) => `<tr>
-                  <td class="col-number">${i+1}</td>
-                  <td class="col-bold">
-                    <span style="display:inline-flex;align-items:center;gap:8px">
-                      <span style="width:12px;height:12px;border-radius:4px;background:${c.color}"></span>
-                      ${c.name}
-                    </span>
-                  </td>
-                  <td>
-                    ${c.nature === 'Administrative'
-                      ? `<span class="badge badge-purple" style="background:rgba(59,130,246,0.12);color:#3b82f6">Administratif</span>`
-                      : `<span class="badge badge-red" style="background:rgba(239,68,68,0.12);color:#ef4444">Fraud</span>`}
-                  </td>
-                  <td><span class="col-mono" style="color:${c.color}">${c.color}</span></td>
-                  <td style="font-size:11px;color:var(--text-muted)">${c.description||''}</td>
-                  <td><div class="flex gap-2">
-                    <button class="btn btn-icon btn-secondary btn-sm" data-action="master-edit" data-entity="category" data-entity-id="${c.id}"><i data-lucide="pencil"></i></button>
-                    <button class="btn btn-icon btn-danger btn-sm" data-action="master-delete" data-entity="category" data-entity-id="${c.id}"><i data-lucide="trash-2"></i></button>
-                  </div></td>
-                </tr>`).join('')}
-              </tbody>
-            </table>
+            ${table}
+            ${pagination}
           </div>
         </div>
       </div>`;
@@ -313,7 +415,7 @@ const MasterPage = {
     if (window.lucide) lucide.createIcons();
   },
 
-  saveCat(id) {
+  async saveCat(id) {
     const data = {
       name: document.getElementById('cat-name').value.trim(),
       color: document.getElementById('cat-color').value,
@@ -321,15 +423,19 @@ const MasterPage = {
       nature: document.getElementById('cat-nature').value
     };
     if (!data.name) { Toast.error('Name is required.'); return; }
-    if (id) {
-      DB.update('fraud_categories', id, data);
-      Toast.success('Category updated.');
-    } else {
-      DB.insert('fraud_categories', data);
-      Toast.success('Category added.');
+    try {
+      if (id) {
+        await DB.update('fraud_categories', id, data);
+        Toast.success('Category updated.');
+      } else {
+        await DB.insert('fraud_categories', data);
+        Toast.success('Category added.');
+      }
+      Modal.close();
+      MasterPage.refreshTab();
+    } catch (e) {
+      Toast.error('Gagal menyimpan kategori: ' + e.message);
     }
-    Modal.close();
-    MasterPage.refreshTab();
   },
 
   deleteCat(id) {
@@ -339,49 +445,85 @@ const MasterPage = {
       Toast.error(`Tidak dapat menghapus kategori: masih digunakan oleh ${refs} data transaksi. Hapus atau ubah referensi terlebih dahulu.`);
       return;
     }
-    Modal.confirm('Delete Category', 'Delete this fraud category?', () => {
-      DB.delete('fraud_categories', id);
-      Toast.success('Category deleted.');
-      MasterPage.refreshTab();
+    Modal.confirm('Delete Category', 'Delete this fraud category?', async () => {
+      try {
+        await DB.delete('fraud_categories', id);
+        Toast.success('Category deleted.');
+        MasterPage.refreshTab();
+      } catch (e) {
+        Toast.error('Gagal menghapus kategori: ' + e.message);
+      }
     });
   },
 
   // ---- OUTLETS ----
   buildOutletsTab() {
-    const outlets  = DB.get('outlets');
-    const brands   = DB.get('brands');
+    const tab = 'outlets';
+    let outlets = DB.get('outlets');
+    const search = MasterPage.search.outlets.toLowerCase();
+    if (search) {
+      outlets = outlets.filter(o =>
+        (o.code && o.code.toLowerCase().includes(search)) ||
+        (o.name && o.name.toLowerCase().includes(search)) ||
+        (o.outletManager && o.outletManager.toLowerCase().includes(search)) ||
+        (o.multiUnitManager && o.multiUnitManager.toLowerCase().includes(search)) ||
+        (o.areaManager && o.areaManager.toLowerCase().includes(search)) ||
+        (o.distrikManager && o.distrikManager.toLowerCase().includes(search))
+      );
+    }
+    outlets = MasterPage._sortData(tab, outlets);
+    const page = MasterPage.page[tab];
+    const perPage = MasterPage.perPage[tab];
+    const total = outlets.length;
+    const paged = DataTable.pageItems(outlets, page, perPage);
+    const offset = (page - 1) * perPage;
+
+    const columns = [
+      { key: '#', label: '#', sortable: false, class: 'col-number', width: '40px' },
+      { key: 'code', label: 'Code', class: 'col-mono' },
+      { key: 'name', label: 'Outlet Name' },
+      { key: 'brand', label: 'Brand' },
+      { key: 'province', label: 'Province' },
+      { key: 'outletManager', label: 'Outlet Manager' },
+      { key: 'multiUnitManager', label: 'Multi Unit' },
+      { key: 'areaManager', label: 'Area' },
+      { key: 'distrikManager', label: 'Distrik' },
+      { key: 'actions', label: 'Actions', sortable: false, width: '120px' },
+    ];
+
+    const buildRow = (o, i) => `<tr>
+      <td class="col-number">${offset + i + 1}</td>
+      <td class="col-mono col-bold">${Utils.escapeHtml(o.code)}</td>
+      <td>${Utils.escapeHtml(o.name)}</td>
+      <td>${Utils.statusBadge(Utils.getBrandName(o.brand))}</td>
+      <td style="font-size:11px">${Utils.escapeHtml(Utils.getProvName(o.province))}</td>
+      <td style="font-size:11px">${Utils.escapeHtml(o.outletManager || '-')}</td>
+      <td style="font-size:11px">${Utils.escapeHtml(o.multiUnitManager || '-')}</td>
+      <td style="font-size:11px">${Utils.escapeHtml(o.areaManager || '-')}</td>
+      <td style="font-size:11px">${Utils.escapeHtml(o.distrikManager || '-')}</td>
+      <td><div class="flex gap-2">
+        <button class="btn btn-icon btn-secondary btn-sm" data-action="master-edit" data-entity="outlet" data-entity-id="${o.id}" title="Edit"><i data-lucide="pencil"></i></button>
+        <button class="btn btn-icon btn-primary btn-sm" data-action="master-outlet-profile" data-outlet-code="${o.code}" title="Profile"><i data-lucide="store"></i></button>
+        <button class="btn btn-icon btn-danger btn-sm" data-action="master-delete" data-entity="outlet" data-entity-id="${o.id}" title="Hapus"><i data-lucide="trash-2"></i></button>
+      </div></td>
+    </tr>`;
+
+    const table = DataTable.render({ columns, data: paged, buildRow, sort: MasterPage._getSortCfg(tab) });
+    const pagination = MasterPage._pagHtml(page, perPage, total);
+
     return `
       <div class="card">
         <div class="card-header">
           <div class="card-title"><i data-lucide="store"></i> Outlets (${outlets.length})</div>
           <div class="flex gap-2">
-            <button class="btn btn-secondary btn-sm" data-action="master-import"><i data-lucide="upload"></i> Import CSV</button>
+            <input type="text" class="form-control search-input" id="ol-search" placeholder="Search outlets..." value="${Utils.escapeHtml(search)}" data-action="master-outlet-search" style="width:200px;font-size:12px;height:30px" />
             <button class="btn btn-primary btn-sm" data-action="master-add" data-entity="outlet"><i data-lucide="plus"></i> Add Outlet</button>
           </div>
         </div>
         <div class="card-body" style="padding-top:0">
           <div class="data-table-wrapper">
-            <table class="data-table">
-              <thead><tr><th>#</th><th>Code</th><th>Outlet Name</th><th>Brand</th><th>Province</th><th>Outlet Manager</th><th>Multi Unit Manager</th><th>Area Manager</th><th>Distrik Manager</th><th>Actions</th></tr></thead>
-              <tbody>
-                  ${outlets.map((o,i) => `<tr>
-                    <td class="col-number">${i+1}</td>
-                    <td class="col-mono col-bold">${o.code}</td>
-                    <td>${o.name}</td>
-                    <td>${Utils.statusBadge(o.brand)}</td>
-                    <td style="font-size:11px">${o.province}</td>
-                    <td style="font-size:11px">${o.outletManager || '-'}</td>
-                    <td style="font-size:11px">${o.multiUnitManager || '-'}</td>
-                    <td style="font-size:11px">${o.areaManager || '-'}</td>
-                    <td style="font-size:11px">${o.distrikManager || '-'}</td>
-                    <td><div class="flex gap-2">
-                    <button class="btn btn-icon btn-secondary btn-sm" data-action="master-edit" data-entity="outlet" data-entity-id="${o.id}" title="Edit"><i data-lucide="pencil"></i></button>
-                    <button class="btn btn-icon btn-primary btn-sm" data-action="master-outlet-profile" data-outlet-code="${o.code}" title="Profile"><i data-lucide="store"></i></button>
-                    <button class="btn btn-icon btn-danger btn-sm" data-action="master-delete" data-entity="outlet" data-entity-id="${o.id}" title="Hapus"><i data-lucide="trash-2"></i></button>
-                  </div></td>
-                </tr>`).join('')}
-              </tbody>
-            </table>
+            ${table}
+            ${pagination}
           </div>
         </div>
       </div>`;
@@ -409,13 +551,13 @@ const MasterPage = {
           <div class="form-group">
             <label class="form-label required">Brand</label>
             <select class="form-control" id="ol-brand">
-              ${brands.map(b=>`<option value="${b.id}" ${o?.brand===b.id?'selected':''}>${b.name}</option>`).join('')}
+              ${brands.map(b=>`<option value="${b.id}" ${o?.brand===b.id?'selected':''}>${Utils.escapeHtml(b.name)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
             <label class="form-label required">Province</label>
             <select class="form-control" id="ol-prov">
-              ${provinces.map(p=>`<option value="${p.id}" ${o?.province===p.id?'selected':''}>${p.name}</option>`).join('')}
+              ${provinces.map(p=>`<option value="${p.id}" ${o?.province===p.id?'selected':''}>${Utils.escapeHtml(p.name)}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
@@ -443,7 +585,7 @@ const MasterPage = {
     if (window.lucide) lucide.createIcons();
   },
 
-  saveOutlet(id) {
+  async saveOutlet(id) {
     const data = {
       code:     document.getElementById('ol-code').value.trim().toUpperCase(),
       name:     document.getElementById('ol-name').value.trim(),
@@ -455,17 +597,21 @@ const MasterPage = {
       distrikManager:   document.getElementById('ol-distrik-manager')?.value.trim() || '',
     };
     if (!data.code || !data.name) { Toast.error('Code and Name are required.'); return; }
-    if (id) {
-      DB.update('outlets', id, data);
-      Toast.success('Outlet updated.');
-    } else {
-      const newOutlet = { ...data, id: data.code };
-      if (DB.get('outlets').find(o => o.id === data.code)) { Toast.error('Outlet code already exists.'); return; }
-      DB.insert('outlets', newOutlet);
-      Toast.success('Outlet added.');
+    try {
+      if (id) {
+        await DB.update('outlets', id, data);
+        Toast.success('Outlet updated.');
+      } else {
+        const newOutlet = { ...data, id: data.code };
+        if (DB.get('outlets').find(o => o.id === data.code)) { Toast.error('Outlet code already exists.'); return; }
+        await DB.insert('outlets', newOutlet);
+        Toast.success('Outlet added.');
+      }
+      Modal.close();
+      MasterPage.refreshTab();
+    } catch (e) {
+      Toast.error('Gagal menyimpan outlet: ' + e.message);
     }
-    Modal.close();
-    MasterPage.refreshTab();
   },
 
   deleteOutlet(id) {
@@ -478,38 +624,58 @@ const MasterPage = {
       Toast.error(`Tidak dapat menghapus outlet: masih digunakan oleh ${refs} data transaksi. Hapus atau ubah referensi terlebih dahulu.`);
       return;
     }
-    Modal.confirm('Delete Outlet', 'Delete this outlet?', () => {
-      DB.delete('outlets', id);
-      Toast.success('Outlet deleted.');
-      MasterPage.refreshTab();
+    Modal.confirm('Delete Outlet', 'Delete this outlet?', async () => {
+      try {
+        await DB.delete('outlets', id);
+        Toast.success('Outlet deleted.');
+        MasterPage.refreshTab();
+      } catch (e) {
+        Toast.error('Gagal menghapus outlet: ' + e.message);
+      }
     });
   },
 
   // ---- PROVINCES ----
   buildProvincesTab() {
-    const provinces = DB.get('provinces');
+    const tab = 'provinces';
+    let provinces = DB.get('provinces');
+    provinces = MasterPage._sortData(tab, provinces);
+    const page = MasterPage.page[tab];
+    const perPage = MasterPage.perPage[tab];
+    const total = provinces.length;
+    const paged = DataTable.pageItems(provinces, page, perPage);
+    const offset = (page - 1) * perPage;
+
+    const columns = [
+      { key: '#', label: '#', sortable: false, class: 'col-number', width: '40px' },
+      { key: 'name', label: 'Province Name' },
+      { key: 'actions', label: 'Actions', sortable: false, width: '80px' },
+    ];
+
+    const buildRow = (p, i) => `<tr>
+      <td class="col-number">${offset + i + 1}</td>
+      <td class="col-bold">${Utils.escapeHtml(p.name)}</td>
+      <td><div class="flex gap-2">
+        <button class="btn btn-icon btn-secondary btn-sm" data-action="master-edit" data-entity="province" data-entity-id="${p.id}"><i data-lucide="pencil"></i></button>
+        <button class="btn btn-icon btn-danger btn-sm" data-action="master-delete" data-entity="province" data-entity-id="${p.id}"><i data-lucide="trash-2"></i></button>
+      </div></td>
+    </tr>`;
+
+    const table = DataTable.render({ columns, data: paged, buildRow, sort: MasterPage._getSortCfg(tab) });
+    const pagination = MasterPage._pagHtml(page, perPage, total);
+
     return `
       <div class="card">
         <div class="card-header">
-          <div class="card-title"><i data-lucide="map-pin"></i> Provinces (${provinces.length})</div>
+          <div class="card-title"><i data-lucide="map-pin"></i> Provinces (${total})</div>
           <div class="flex gap-2">
-            <button class="btn btn-secondary btn-sm" data-action="master-import"><i data-lucide="upload"></i> Import CSV</button>
             <button class="btn btn-primary btn-sm" data-action="master-add" data-entity="province"><i data-lucide="plus"></i> Add Province</button>
           </div>
         </div>
         <div class="card-body" style="padding-top:0">
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-3)">
-            ${provinces.map(p => `
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) var(--space-4);background:rgba(255,255,255,0.03);border:1px solid var(--border-color);border-radius:var(--radius-md)">
-                <div style="display:flex;align-items:center;gap:var(--space-2)">
-                  <i data-lucide="map-pin" style="width:12px;height:12px;color:var(--blue-primary)"></i>
-                  <span style="font-size:12px;font-weight:500">${p.name}</span>
-                </div>
-                <div class="flex gap-2">
-                  <button class="btn btn-icon btn-secondary btn-sm" style="width:24px;height:24px" data-action="master-edit" data-entity="province" data-entity-id="${p.id}"><i data-lucide="pencil" style="width:10px;height:10px"></i></button>
-                  <button class="btn btn-icon btn-danger btn-sm" style="width:24px;height:24px" data-action="master-delete" data-entity="province" data-entity-id="${p.id}"><i data-lucide="trash-2" style="width:10px;height:10px"></i></button>
-                </div>
-              </div>`).join('')}
+          <div class="data-table-wrapper">
+            ${table}
+            ${pagination}
           </div>
         </div>
       </div>`;
@@ -535,13 +701,17 @@ const MasterPage = {
     if (window.lucide) lucide.createIcons();
   },
 
-  saveProvince(id) {
+  async saveProvince(id) {
     const name = document.getElementById('pv-name').value.trim();
     if (!name) { Toast.error('Province name is required.'); return; }
-    if (id) { DB.update('provinces', id, { name }); Toast.success('Province updated.'); }
-    else    { DB.insert('provinces', { name }); Toast.success('Province added.'); }
-    Modal.close();
-    MasterPage.refreshTab();
+    try {
+      if (id) { await DB.update('provinces', id, { name }); Toast.success('Province updated.'); }
+      else    { await DB.insert('provinces', { name }); Toast.success('Province added.'); }
+      Modal.close();
+      MasterPage.refreshTab();
+    } catch (e) {
+      Toast.error('Gagal menyimpan provinsi: ' + e.message);
+    }
   },
 
   deleteProvince(id) {
@@ -551,41 +721,60 @@ const MasterPage = {
       Toast.error(`Tidak dapat menghapus provinsi: masih digunakan oleh ${refs} data transaksi. Hapus atau ubah referensi terlebih dahulu.`);
       return;
     }
-    Modal.confirm('Delete Province', 'Delete this province?', () => {
-      DB.delete('provinces', id);
-      Toast.success('Province deleted.');
-      MasterPage.refreshTab();
+    Modal.confirm('Delete Province', 'Delete this province?', async () => {
+      try {
+        await DB.delete('provinces', id);
+        Toast.success('Province deleted.');
+        MasterPage.refreshTab();
+      } catch (e) {
+        Toast.error('Gagal menghapus provinsi: ' + e.message);
+      }
     });
   },
 
   // ---- DEPARTMENTS ----
   buildDepartmentsTab() {
-    const depts = DB.get('departments');
+    const tab = 'departments';
+    let depts = DB.get('departments');
+    depts = MasterPage._sortData(tab, depts);
+    const page = MasterPage.page[tab];
+    const perPage = MasterPage.perPage[tab];
+    const total = depts.length;
+    const paged = DataTable.pageItems(depts, page, perPage);
+    const offset = (page - 1) * perPage;
+
+    const columns = [
+      { key: '#', label: '#', sortable: false, class: 'col-number', width: '40px' },
+      { key: 'name', label: 'Department Name' },
+      { key: 'code', label: 'Code', class: 'col-mono' },
+      { key: 'actions', label: 'Actions', sortable: false, width: '80px' },
+    ];
+
+    const buildRow = (d, i) => `<tr>
+      <td class="col-number">${offset + i + 1}</td>
+      <td class="col-bold">${Utils.escapeHtml(d.name)}</td>
+      <td class="col-mono">${Utils.escapeHtml(d.code)}</td>
+      <td><div class="flex gap-2">
+        <button class="btn btn-icon btn-secondary btn-sm" data-action="master-edit" data-entity="department" data-entity-id="${d.id}"><i data-lucide="pencil"></i></button>
+        <button class="btn btn-icon btn-danger btn-sm" data-action="master-delete" data-entity="department" data-entity-id="${d.id}"><i data-lucide="trash-2"></i></button>
+      </div></td>
+    </tr>`;
+
+    const table = DataTable.render({ columns, data: paged, buildRow, sort: MasterPage._getSortCfg(tab) });
+    const pagination = MasterPage._pagHtml(page, perPage, total);
+
     return `
       <div class="card">
         <div class="card-header">
-          <div class="card-title"><i data-lucide="building"></i> Departments (${depts.length})</div>
+          <div class="card-title"><i data-lucide="building"></i> Departments (${total})</div>
           <div class="flex gap-2">
-            <button class="btn btn-secondary btn-sm" data-action="master-import"><i data-lucide="upload"></i> Import CSV</button>
             <button class="btn btn-primary btn-sm" data-action="master-add" data-entity="department"><i data-lucide="plus"></i> Add Department</button>
           </div>
         </div>
         <div class="card-body" style="padding-top:0">
           <div class="data-table-wrapper">
-            <table class="data-table">
-              <thead><tr><th>#</th><th>Department Name</th><th>Code</th><th>Actions</th></tr></thead>
-              <tbody>
-                ${depts.map((d,i) => `<tr>
-                  <td class="col-number">${i+1}</td>
-                  <td class="col-bold">${d.name}</td>
-                  <td class="col-mono">${d.code}</td>
-                  <td><div class="flex gap-2">
-                    <button class="btn btn-icon btn-secondary btn-sm" data-action="master-edit" data-entity="department" data-entity-id="${d.id}"><i data-lucide="pencil"></i></button>
-                    <button class="btn btn-icon btn-danger btn-sm" data-action="master-delete" data-entity="department" data-entity-id="${d.id}"><i data-lucide="trash-2"></i></button>
-                  </div></td>
-                </tr>`).join('')}
-              </tbody>
-            </table>
+            ${table}
+            ${pagination}
           </div>
         </div>
       </div>`;
@@ -617,21 +806,25 @@ const MasterPage = {
     if (window.lucide) lucide.createIcons();
   },
 
-  saveDept(id) {
+  async saveDept(id) {
     const data = {
       name: document.getElementById('dept-name').value.trim(),
       code: document.getElementById('dept-code').value.trim().toUpperCase(),
     };
     if (!data.name || !data.code) { Toast.error('Name and Code are required.'); return; }
-    if (id) {
-      DB.update('departments', id, data);
-      Toast.success('Department updated.');
-    } else {
-      DB.insert('departments', data);
-      Toast.success('Department added.');
+    try {
+      if (id) {
+        await DB.update('departments', id, data);
+        Toast.success('Department updated.');
+      } else {
+        await DB.insert('departments', data);
+        Toast.success('Department added.');
+      }
+      Modal.close();
+      MasterPage.refreshTab();
+    } catch (e) {
+      Toast.error('Gagal menyimpan departemen: ' + e.message);
     }
-    Modal.close();
-    MasterPage.refreshTab();
   },
 
   deleteDept(id) {
@@ -641,10 +834,14 @@ const MasterPage = {
       Toast.error(`Tidak dapat menghapus departemen: masih digunakan oleh ${refs} data transaksi. Hapus atau ubah referensi terlebih dahulu.`);
       return;
     }
-    Modal.confirm('Delete Department', 'Delete this department?', () => {
-      DB.delete('departments', id);
-      Toast.success('Department deleted.');
-      MasterPage.refreshTab();
+    Modal.confirm('Delete Department', 'Delete this department?', async () => {
+      try {
+        await DB.delete('departments', id);
+        Toast.success('Department deleted.');
+        MasterPage.refreshTab();
+      } catch (e) {
+        Toast.error('Gagal menghapus departemen: ' + e.message);
+      }
     });
   },
 
@@ -658,11 +855,39 @@ const MasterPage = {
       const tabs = ['brands','fraud_categories','outlets','provinces','departments'];
       el.classList.toggle('active', tabs[i] === tab);
     });
+    MasterPage.wireSearch();
   },
 
   refreshTab() {
     document.getElementById('master-content').innerHTML = MasterPage.buildTabContent();
     if (window.lucide) lucide.createIcons();
+    MasterPage.wireSearch();
+  },
+
+  wireSearch() {
+    PageLifecycle.on('ol-search', 'input', (e) => {
+      MasterPage.search.outlets = e.target.value;
+      MasterPage.page.outlets = 1;
+      clearTimeout(MasterPage._searchTimer);
+      MasterPage._searchTimer = setTimeout(() => MasterPage.refreshTab(), 250);
+    });
+  },
+
+  setSort(key) {
+    const tab = MasterPage.activeTab;
+    if (MasterPage.sortKey[tab] === key) {
+      MasterPage.sortDir[tab] = MasterPage.sortDir[tab] === 'asc' ? 'desc' : 'asc';
+    } else {
+      MasterPage.sortKey[tab] = key;
+      MasterPage.sortDir[tab] = 'asc';
+    }
+    MasterPage.page[tab] = 1;
+    MasterPage.refreshTab();
+  },
+
+  setPage(page) {
+    MasterPage.page[MasterPage.activeTab] = page;
+    MasterPage.refreshTab();
   },
 
   // ---- CSV UPLOAD AND PARSING ----
@@ -803,167 +1028,171 @@ const MasterPage = {
     return result;
   },
 
-  processImport() {
+  async processImport() {
     const text = MasterPage.parsedCsvContent;
     if (!text) { Toast.error('Invalid CSV content.'); return; }
-    
+
     const rows = MasterPage.parseCSV(text);
     if (rows.length < 2) { Toast.error('CSV missing data rows.'); return; }
-    
+
     const headers = rows[0].map(h => h.toLowerCase().trim());
     const dataRows = rows.slice(1);
     const tab = MasterPage.activeTab;
-    
+
     let countSuccess = 0;
     let countErrors = 0;
 
-    if (tab === 'brands') {
-      const idIdx = headers.indexOf('id');
-      const nameIdx = headers.indexOf('name');
-      const colorIdx = headers.indexOf('color');
-      const descIdx = headers.indexOf('description');
-      
-      if (idIdx === -1 || nameIdx === -1) {
-        Toast.error('CSV columns must include "id" and "name"');
-        return;
-      }
+    try {
+      if (tab === 'brands') {
+        const idIdx = headers.indexOf('id');
+        const nameIdx = headers.indexOf('name');
+        const colorIdx = headers.indexOf('color');
+        const descIdx = headers.indexOf('description');
 
-      const brands = DB.get('brands');
-      dataRows.forEach(row => {
-        if (row.length <= Math.max(idIdx, nameIdx)) { countErrors++; return; }
-        const id = row[idIdx]?.trim();
-        const name = row[nameIdx]?.trim();
-        if (!id || !name) { countErrors++; return; }
-        const color = (colorIdx !== -1 && row[colorIdx]) ? row[colorIdx].trim() : '#3b82f6';
-        const description = (descIdx !== -1 && row[descIdx]) ? row[descIdx].trim() : '';
-        
-        const existIdx = brands.findIndex(b => b.id === id);
-        const record = { id, name, color, description };
-        if (existIdx !== -1) { brands[existIdx] = { ...brands[existIdx], ...record }; }
-        else { brands.push(record); }
-        countSuccess++;
-      });
-      DB.set('brands', brands);
-
-    } else if (tab === 'fraud_categories') {
-      const nameIdx = headers.indexOf('name');
-      const colorIdx = headers.indexOf('color');
-      const descIdx = headers.indexOf('description');
-      const natureIdx = headers.indexOf('nature');
-      
-      if (nameIdx === -1) {
-        Toast.error('CSV columns must include "name"');
-        return;
-      }
-
-      const cats = DB.get('fraud_categories');
-      dataRows.forEach(row => {
-        if (row.length <= nameIdx) { countErrors++; return; }
-        const name = row[nameIdx]?.trim();
-        if (!name) { countErrors++; return; }
-        const color = (colorIdx !== -1 && row[colorIdx]) ? row[colorIdx].trim() : '#3b82f6';
-        const description = (descIdx !== -1 && row[descIdx]) ? row[descIdx].trim() : '';
-        const nature = (natureIdx !== -1 && row[natureIdx]) ? row[natureIdx].trim() : 'Fraud';
-        
-        const existIdx = cats.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
-        const id = existIdx !== -1 ? cats[existIdx].id : 'cat_' + DB.genId();
-        const record = { id, name, color, description, nature };
-        if (existIdx !== -1) { cats[existIdx] = { ...cats[existIdx], ...record }; }
-        else { cats.push(record); }
-        countSuccess++;
-      });
-      DB.set('fraud_categories', cats);
-
-    } else if (tab === 'outlets') {
-      const codeIdx = headers.indexOf('code');
-      const nameIdx = headers.indexOf('name');
-      const brandIdx = headers.indexOf('brand');
-      const provIdx = headers.indexOf('province');
-      const omIdx = headers.indexOf('outletmanager');
-      const mumIdx = headers.indexOf('multiunitmanager');
-      const amIdx = headers.indexOf('areamanager');
-      const dmIdx = headers.indexOf('distrikmanager');
-      
-      if (codeIdx === -1 || nameIdx === -1 || brandIdx === -1 || provIdx === -1) {
-        Toast.error('CSV columns must include "code", "name", "brand", "province"');
-        return;
-      }
-
-      const outlets = DB.get('outlets');
-      const validBrands = DB.get('brands').map(b => b.id);
-      const validProvs = DB.get('provinces').map(p => p.name);
-
-      dataRows.forEach(row => {
-        if (row.length <= Math.max(codeIdx, nameIdx, brandIdx, provIdx)) { countErrors++; return; }
-        const code = row[codeIdx]?.trim().toUpperCase();
-        const name = row[nameIdx]?.trim();
-        const brand = row[brandIdx]?.trim();
-        const province = row[provIdx]?.trim();
-        if (!code || !name || !brand || !province) { countErrors++; return; }
-
-        if (!validBrands.includes(brand)) {
-          DB.insert('brands', { id: brand, name: brand, color: '#3b82f6', description: 'Auto-created via import' });
-          validBrands.push(brand);
-        }
-        if (!validProvs.some(p => p.toLowerCase() === province.toLowerCase())) {
-          DB.insert('provinces', { name: province });
-          validProvs.push(province);
+        if (idIdx === -1 || nameIdx === -1) {
+          Toast.error('CSV columns must include "id" and "name"');
+          return;
         }
 
-        const existIdx = outlets.findIndex(o => o.code === code);
-        const record = {
-          id: code, code, name, brand, province,
-          outletManager:    omIdx !== -1 && row[omIdx] ? row[omIdx].trim() : '',
-          multiUnitManager: mumIdx !== -1 && row[mumIdx] ? row[mumIdx].trim() : '',
-          areaManager:      amIdx !== -1 && row[amIdx] ? row[amIdx].trim() : '',
-          distrikManager:   dmIdx !== -1 && row[dmIdx] ? row[dmIdx].trim() : '',
-        };
-        if (existIdx !== -1) { outlets[existIdx] = { ...outlets[existIdx], ...record }; }
-        else { outlets.push(record); }
-        countSuccess++;
-      });
-      DB.set('outlets', outlets);
+        const brands = DB.get('brands');
+        dataRows.forEach(row => {
+          if (row.length <= Math.max(idIdx, nameIdx)) { countErrors++; return; }
+          const id = row[idIdx]?.trim();
+          const name = row[nameIdx]?.trim();
+          if (!id || !name) { countErrors++; return; }
+          const color = (colorIdx !== -1 && row[colorIdx]) ? row[colorIdx].trim() : '#3b82f6';
+          const description = (descIdx !== -1 && row[descIdx]) ? row[descIdx].trim() : '';
 
-    } else if (tab === 'provinces') {
-      const nameIdx = headers.indexOf('name');
-      if (nameIdx === -1) { Toast.error('CSV columns must include "name"'); return; }
+          const existIdx = brands.findIndex(b => b.id === id);
+          const record = { id, name, color, description };
+          if (existIdx !== -1) { brands[existIdx] = { ...brands[existIdx], ...record }; }
+          else { brands.push(record); }
+          countSuccess++;
+        });
+        DB.set('brands', brands);
 
-      const provinces = DB.get('provinces');
-      dataRows.forEach(row => {
-        if (row.length <= nameIdx) { countErrors++; return; }
-        const name = row[nameIdx]?.trim();
-        if (!name) { countErrors++; return; }
+      } else if (tab === 'fraud_categories') {
+        const nameIdx = headers.indexOf('name');
+        const colorIdx = headers.indexOf('color');
+        const descIdx = headers.indexOf('description');
+        const natureIdx = headers.indexOf('nature');
 
-        const exist = provinces.find(p => p.name.toLowerCase() === name.toLowerCase());
-        if (!exist) {
-          provinces.push({ id: 'prov_' + DB.genId(), name });
+        if (nameIdx === -1) {
+          Toast.error('CSV columns must include "name"');
+          return;
         }
-        countSuccess++;
-      });
-      DB.set('provinces', provinces);
-    } else if (tab === 'departments') {
-      const nameIdx = headers.indexOf('name');
-      const codeIdx = headers.indexOf('code');
-      if (nameIdx === -1 || codeIdx === -1) { Toast.error('CSV columns must include "name" and "code"'); return; }
-      const depts = DB.get('departments');
-      dataRows.forEach(row => {
-        if (row.length <= Math.max(nameIdx, codeIdx)) { countErrors++; return; }
-        const name = row[nameIdx]?.trim();
-        const code = row[codeIdx]?.trim().toUpperCase();
-        if (!name || !code) { countErrors++; return; }
-        const exist = depts.find(d => d.code === code);
-        const record = { name, code };
-        if (exist) { Object.assign(exist, record); }
-        else { depts.push({ id: 'dept_' + DB.genId(), ...record }); }
-        countSuccess++;
-      });
-      DB.set('departments', depts);
+
+        const cats = DB.get('fraud_categories');
+        dataRows.forEach(row => {
+          if (row.length <= nameIdx) { countErrors++; return; }
+          const name = row[nameIdx]?.trim();
+          if (!name) { countErrors++; return; }
+          const color = (colorIdx !== -1 && row[colorIdx]) ? row[colorIdx].trim() : '#3b82f6';
+          const description = (descIdx !== -1 && row[descIdx]) ? row[descIdx].trim() : '';
+          const nature = (natureIdx !== -1 && row[natureIdx]) ? row[natureIdx].trim() : 'Fraud';
+
+          const existIdx = cats.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
+          const id = existIdx !== -1 ? cats[existIdx].id : 'cat_' + DB.genId();
+          const record = { id, name, color, description, nature };
+          if (existIdx !== -1) { cats[existIdx] = { ...cats[existIdx], ...record }; }
+          else { cats.push(record); }
+          countSuccess++;
+        });
+        DB.set('fraud_categories', cats);
+
+      } else if (tab === 'outlets') {
+        const codeIdx = headers.indexOf('code');
+        const nameIdx = headers.indexOf('name');
+        const brandIdx = headers.indexOf('brand');
+        const provIdx = headers.indexOf('province');
+        const omIdx = headers.indexOf('outletmanager');
+        const mumIdx = headers.indexOf('multiunitmanager');
+        const amIdx = headers.indexOf('areamanager');
+        const dmIdx = headers.indexOf('distrikmanager');
+
+        if (codeIdx === -1 || nameIdx === -1 || brandIdx === -1 || provIdx === -1) {
+          Toast.error('CSV columns must include "code", "name", "brand", "province"');
+          return;
+        }
+
+        const outlets = DB.get('outlets');
+        const validBrands = DB.get('brands').map(b => b.id);
+        const validProvs = DB.get('provinces').map(p => p.name);
+
+        for (const row of dataRows) {
+          if (row.length <= Math.max(codeIdx, nameIdx, brandIdx, provIdx)) { countErrors++; continue; }
+          const code = row[codeIdx]?.trim().toUpperCase();
+          const name = row[nameIdx]?.trim();
+          const brand = row[brandIdx]?.trim();
+          const province = row[provIdx]?.trim();
+          if (!code || !name || !brand || !province) { countErrors++; continue; }
+
+          if (!validBrands.includes(brand)) {
+            await DB.insert('brands', { id: brand, name: brand, color: '#3b82f6', description: 'Auto-created via import' });
+            validBrands.push(brand);
+          }
+          if (!validProvs.some(p => p.toLowerCase() === province.toLowerCase())) {
+            await DB.insert('provinces', { name: province });
+            validProvs.push(province);
+          }
+
+          const existIdx = outlets.findIndex(o => o.code === code);
+          const record = {
+            id: code, code, name, brand, province,
+            outletManager:    omIdx !== -1 && row[omIdx] ? row[omIdx].trim() : '',
+            multiUnitManager: mumIdx !== -1 && row[mumIdx] ? row[mumIdx].trim() : '',
+            areaManager:      amIdx !== -1 && row[amIdx] ? row[amIdx].trim() : '',
+            distrikManager:   dmIdx !== -1 && row[dmIdx] ? row[dmIdx].trim() : '',
+          };
+          if (existIdx !== -1) { outlets[existIdx] = { ...outlets[existIdx], ...record }; }
+          else { outlets.push(record); }
+          countSuccess++;
+        }
+        DB.set('outlets', outlets);
+
+      } else if (tab === 'provinces') {
+        const nameIdx = headers.indexOf('name');
+        if (nameIdx === -1) { Toast.error('CSV columns must include "name"'); return; }
+
+        const provinces = DB.get('provinces');
+        dataRows.forEach(row => {
+          if (row.length <= nameIdx) { countErrors++; return; }
+          const name = row[nameIdx]?.trim();
+          if (!name) { countErrors++; return; }
+
+          const exist = provinces.find(p => p.name.toLowerCase() === name.toLowerCase());
+          if (!exist) {
+            provinces.push({ id: 'prov_' + DB.genId(), name });
+          }
+          countSuccess++;
+        });
+        DB.set('provinces', provinces);
+      } else if (tab === 'departments') {
+        const nameIdx = headers.indexOf('name');
+        const codeIdx = headers.indexOf('code');
+        if (nameIdx === -1 || codeIdx === -1) { Toast.error('CSV columns must include "name" and "code"'); return; }
+        const depts = DB.get('departments');
+        dataRows.forEach(row => {
+          if (row.length <= Math.max(nameIdx, codeIdx)) { countErrors++; return; }
+          const name = row[nameIdx]?.trim();
+          const code = row[codeIdx]?.trim().toUpperCase();
+          if (!name || !code) { countErrors++; return; }
+          const exist = depts.find(d => d.code === code);
+          const record = { name, code };
+          if (exist) { Object.assign(exist, record); }
+          else { depts.push({ id: 'dept_' + DB.genId(), ...record }); }
+          countSuccess++;
+        });
+        DB.set('departments', depts);
+      }
+
+      Toast.success(`Imported ${countSuccess} records. Errors/skipped: ${countErrors}`);
+      Modal.close();
+      MasterPage.refreshTab();
+    } catch (e) {
+      Toast.error('Gagal import: ' + e.message);
     }
-
-    Toast.success(`Imported ${countSuccess} records. Errors/skipped: ${countErrors}`);
-    Modal.close();
-    MasterPage.refreshTab();
-  }
+  },
 };
 
 window.MasterPage = MasterPage;
