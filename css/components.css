@@ -142,38 +142,6 @@
 
 .login-error.hidden { display: none; }
 
-.demo-accounts {
-  margin-top: 20px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 12px;
-}
-
-.demo-accounts p {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  margin-bottom: 8px;
-}
-
-.demo-account-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 0;
-  font-size: 11px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  border-radius: 4px;
-  padding: 4px 6px;
-  transition: background 0.15s;
-}
-.demo-account-item:hover { background: rgba(59,130,246,0.08); }
-.demo-account-item .role-tag { font-size: 9px; color: var(--text-muted); }
-
 @keyframes floatOrb {
   from { transform: translate(0, 0) scale(1); }
   to { transform: translate(30px, 30px) scale(1.1); }

@@ -18,7 +18,6 @@ const LoginPage = {
             </div>
             <h1>Internal Audit</h1>
             <p>Monitoring System · Sign in to continue</p>
-            <p style="margin-top:8px;font-size:10px;color:var(--amber-light);font-weight:600;background:rgba(245,158,11,0.1);padding:4px 10px;border-radius:4px;display:inline-block">⚠ TESTING — Data fiktif</p>
           </div>
 
           <div id="login-error" class="login-error hidden">
@@ -56,16 +55,6 @@ const LoginPage = {
   afterRender() {
     PageLifecycle.on('login-form', 'submit', (e) => this.handleLogin(e));
     PageLifecycle.on('toggle-password', 'click', () => this.togglePassword());
-    if (!this._eventsWired) {
-      this._eventsWired = true;
-      PageLifecycle.delegate('app-root', {
-        click: {
-          '.demo-account-item': (e, target) => {
-            this.fillDemo(target.dataset.username, target.dataset.password);
-          }
-        }
-      });
-    }
   },
 
   togglePassword() {
@@ -100,10 +89,6 @@ const LoginPage = {
     }
   },
 
-  fillDemo(u, p) {
-    document.getElementById('login-username').value = u;
-    document.getElementById('login-password').value = p;
-  }
 };
 
 window.LoginPage = LoginPage;
