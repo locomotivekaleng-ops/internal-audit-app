@@ -18,6 +18,7 @@ const LoginPage = {
             </div>
             <h1>Internal Audit</h1>
             <p>Monitoring System · Sign in to continue</p>
+            <p style="margin-top:8px;font-size:10px;color:var(--amber-light);font-weight:600;background:rgba(245,158,11,0.1);padding:4px 10px;border-radius:4px;display:inline-block">⚠ TESTING — Data fiktif</p>
           </div>
 
           <div id="login-error" class="login-error hidden">
