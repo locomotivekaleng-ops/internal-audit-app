@@ -208,6 +208,30 @@ const UsersPage = {
             </select>
           </div>
         </div>
+
+        <div id="auditor-fields" style="display:none">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin:var(--space-4) 0 var(--space-3);padding-top:var(--space-4);border-top:1px solid var(--border-light)">
+            <i data-lucide="briefcase" style="width:12px;height:12px;vertical-align:-2px"></i> Auditor Details <span style="font-weight:400;text-transform:none">(Optional)</span>
+          </div>
+          <div class="form-grid form-grid-2">
+            <div class="form-group">
+              <label class="form-label">NIK (Employee ID)</label>
+              <input type="text" class="form-control" id="uf-nik" maxlength="20" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Title / Position</label>
+              <input type="text" class="form-control" id="uf-aud-title" placeholder="e.g. Senior Auditor" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone</label>
+              <input type="text" class="form-control" id="uf-phone" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Join Date</label>
+              <input type="date" class="form-control" id="uf-join-date" />
+            </div>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-action="modal-close">Cancel</button>
@@ -219,6 +243,17 @@ const UsersPage = {
     PageLifecycle.on('uf-role', 'change', () => UsersPage.onRoleChange());
     PageLifecycle.on('users-save-btn', 'click', () => UsersPage.saveUser(u?.id || ''));
     UsersPage.onRoleChange();
+
+    if (isEdit && u && (u.role === 'auditor' || u.role === 'head')) {
+      const linked = DB.where('auditors', 'user_id', u.id)[0];
+      if (linked) {
+        const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+        setVal('uf-nik', linked.nik);
+        setVal('uf-aud-title', linked.title);
+        setVal('uf-phone', linked.phone);
+        setVal('uf-join-date', linked.joinDate);
+      }
+    }
   },
 
   onRoleChange() {
@@ -231,6 +266,11 @@ const UsersPage = {
     } else {
       deptGroup.style.display = '';
       deptLabel.textContent = role === 'division' ? 'Department (wajib untuk Divisi)' : 'Department';
+    }
+
+    const auditorFields = document.getElementById('auditor-fields');
+    if (auditorFields) {
+      auditorFields.style.display = (role === 'auditor' || role === 'head') ? '' : 'none';
     }
 
     const summary = document.getElementById('uf-perm-summary');
@@ -293,32 +333,54 @@ const UsersPage = {
     if (!name || !username || !role) { Toast.error('Fill required fields.'); return; }
     if (role === 'division' && !dept) { Toast.error('Department wajib diisi untuk role Divisi.'); return; }
 
-    // Check username uniqueness
     const existing = UsersPage._profiles.find(u => u.username === username && u.id !== id);
     if (existing) { Toast.error('Username already taken.'); return; }
 
+    const nik      = document.getElementById('uf-nik')?.value?.trim() || '';
+    const audTitle = document.getElementById('uf-aud-title')?.value?.trim() || '';
+    const phone    = document.getElementById('uf-phone')?.value?.trim() || '';
+    const joinDate = document.getElementById('uf-join-date')?.value || '';
+    const isAuditorRole = role === 'auditor' || role === 'head';
+
     try {
+      let userId = id;
       if (isEdit) {
         const profileEmail = email || username + '@internal-audit.app';
         await Supabase.update('profiles', id, { name, email: profileEmail, role, department: dept, status });
         DB.updateLocal('profiles', id, { name, email: profileEmail, role, department: dept, status });
         AuditLog.logUpdate('user', id, { name, username, role });
-        Toast.success('User account updated.');
       } else {
         const password = document.getElementById('uf-password')?.value;
         if (!password) { Toast.error('Password is required.'); return; }
         if (password.length < 8) { Toast.error('Password must be at least 8 characters.'); return; }
         const userEmail = username + '@internal-audit.app';
         const result = await Supabase.adminCreateUser(userEmail, password, { name, role });
-        const newId = result.id;
-        await Supabase.update('profiles', newId, {
+        userId = result.id;
+        await Supabase.update('profiles', userId, {
           name, email: userEmail, role, department: dept, status
         });
         const freshProfiles = await Supabase.getAll('profiles');
         DB.set('profiles', freshProfiles);
-        AuditLog.logCreate('user', newId, { name, username, role });
-        Toast.success('User account created.');
+        AuditLog.logCreate('user', userId, { name, username, role });
       }
+
+      if (isAuditorRole && (nik || audTitle || phone || joinDate)) {
+        const profileEmail = email || username + '@internal-audit.app';
+        const existingAuditor = DB.where('auditors', 'user_id', userId)[0];
+        const auditorData = {
+          name, nik, title: audTitle, department: dept,
+          email: profileEmail, phone,
+          joinDate: joinDate || new Date().toISOString().split('T')[0],
+          status, user_id: userId
+        };
+        if (existingAuditor) {
+          await DB.update('auditors', existingAuditor.id, auditorData);
+        } else {
+          await DB.insert('auditors', auditorData);
+        }
+      }
+
+      Toast.success(isEdit ? 'User account updated.' : 'User account created.');
       Modal.close();
       await UsersPage.refresh();
     } catch (e) {

@@ -50,9 +50,6 @@ const AuditorsPage = {
           <h2>Auditor Management</h2>
           <p>${auditors.filter(a=>a.status==='active').length} active auditors across ${deptStats.length} departments</p>
         </div>
-        <div class="page-header-actions">
-          ${Auth.isHead() ? `<button class="btn btn-primary" id="auditors-add-btn"><i data-lucide="user-plus"></i> Add Auditor</button>` : ''}
-        </div>
       </div>
 
       <!-- Dept KPIs -->
@@ -98,12 +95,6 @@ const AuditorsPage = {
 
     return `
       <div class="auditor-card" id="aud-card-${a.id}">
-        <div class="auditor-actions">
-          ${Auth.isHead() ? `
-            <button class="btn btn-icon btn-secondary btn-sm" data-id="${a.id}" data-action="edit-auditor" title="Edit"><i data-lucide="pencil"></i></button>
-            ${Auth.isSuperAdmin() ? `<button class="btn btn-icon btn-danger btn-sm" data-id="${a.id}" data-action="delete-auditor" title="Delete"><i data-lucide="trash-2"></i></button>` : ''}
-          ` : ''}
-        </div>
         <div class="auditor-avatar-large" style="background:linear-gradient(135deg,${colors[colorIdx]},${colors[(colorIdx+2)%colors.length]})">${initials}</div>
         <div class="card-name">${Utils.escapeHtml(a.name)}</div>
         <div class="card-title">${Utils.escapeHtml(a.title)}</div>
@@ -146,27 +137,12 @@ const AuditorsPage = {
       AuditorsPage._pageWired = true;
       PageLifecycle.delegate('page-content', {
         click: {
-          '[data-action="edit-auditor"]': (e, target) => { this.openEditModal(target.dataset.id); },
-          '[data-action="delete-auditor"]': (e, target) => { this.deleteAuditor(target.dataset.id); },
           '[data-action="view-auditor"]': (e, target) => { this.viewAuditor(target.dataset.id); },
           '[data-dept]': (e, target) => { this.setDept(target.dataset.dept); },
-          '#auditors-add-btn': () => this.openAddModal(),
         }
       });
     }
     PageLifecycle.on('auditors-search', 'input', (e) => this.setSearch(e.target.value));
-    if (!AuditorsPage._modalWired) {
-      AuditorsPage._modalWired = true;
-      PageLifecycle.delegate('modal-overlay', {
-        click: {
-          '.modal-close-btn': () => Modal.close(),
-          '[data-action="edit-from-view"]': (e, target) => {
-            Modal.close();
-            this.openEditModal(target.dataset.id);
-          },
-        }
-      });
-    }
   },
 
   viewAuditor(id) {
@@ -210,123 +186,10 @@ const AuditorsPage = {
         </tbody></table></div>` : ''}
       </div>
       <div class="modal-footer">
-        ${Auth.isHead() ? `<button class="btn btn-primary" data-action="edit-from-view" data-id="${a.id}"><i data-lucide="pencil"></i> Edit</button>` : ''}
         <button class="btn btn-secondary" data-action="modal-close">Close</button>
       </div>`, 'modal-lg');
     if (window.lucide) lucide.createIcons();
   },
-
-  openAddModal() { AuditorsPage._openModal(null); },
-  openEditModal(id) { AuditorsPage._openModal(DB.find('auditors', id)); },
-
-  _openModal(a) {
-    const isEdit = !!a;
-    const users = DB.get('profiles');
-    const depts = DB.get('departments');
-
-    Modal.open(`
-      <div class="modal-header">
-        <div class="modal-title"><i data-lucide="user-plus"></i> ${isEdit ? 'Edit' : 'Add New'} Auditor</div>
-        <button class="modal-close" data-action="modal-close"><i data-lucide="x"></i></button>
-      </div>
-      <div class="modal-body">
-        <div class="form-grid form-grid-2">
-          <div class="form-group">
-            <label class="form-label required">Full Name</label>
-            <input type="text" class="form-control" id="af-name" value="${Utils.escapeHtml(a?.name||'')}" maxlength="100" />
-          </div>
-          <div class="form-group">
-            <label class="form-label required">NIK (Employee ID)</label>
-            <input type="text" class="form-control" id="af-nik" value="${Utils.escapeHtml(a?.nik||'')}" maxlength="20" />
-          </div>
-          <div class="form-group">
-            <label class="form-label required">Title / Position</label>
-            <input type="text" class="form-control" id="af-title" value="${Utils.escapeHtml(a?.title||'')}" placeholder="e.g. Senior Auditor" />
-          </div>
-          <div class="form-group">
-            <label class="form-label required">Department</label>
-            <select class="form-control" id="af-dept">
-              ${depts.map(d=>`<option value="${d.id}" ${a?.department===d.id?'selected':''}>${Utils.escapeHtml(d.name)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Email</label>
-            <input type="email" class="form-control" id="af-email" value="${Utils.escapeHtml(a?.email||'')}" maxlength="100" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Phone</label>
-            <input type="text" class="form-control" id="af-phone" value="${Utils.escapeHtml(a?.phone||'')}" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Join Date</label>
-            <input type="date" class="form-control" id="af-join" value="${Utils.formatDateInput(a?.joinDate)}" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Status</label>
-            <select class="form-control" id="af-status">
-              <option value="active" ${a?.status==='active'?'selected':''}>Active</option>
-              <option value="inactive" ${a?.status==='inactive'?'selected':''}>Inactive</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Linked User Account</label>
-            <select class="form-control" id="af-user">
-              <option value="">-- No linked account --</option>
-              ${users.filter(u=>u.role==='auditor'||u.role==='head').map(u=>`<option value="${u.id}" ${a?.userId===u.id?'selected':''}>${Utils.escapeHtml(u.username)} (${Utils.escapeHtml(u.name)})</option>`).join('')}
-            </select>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" data-action="modal-close">Cancel</button>
-        <button class="btn btn-primary" id="auditors-save-btn">
-          <i data-lucide="save"></i> ${isEdit ? 'Update' : 'Save'}
-        </button>
-      </div>`, 'modal-md');
-    if (window.lucide) lucide.createIcons();
-    PageLifecycle.on('auditors-save-btn', 'click', () => AuditorsPage.saveAuditor(a?.id || ''));
-  },
-
-  async saveAuditor(id) {
-    const data = {
-      name:     document.getElementById('af-name').value,
-      nik:      document.getElementById('af-nik').value,
-      title:    document.getElementById('af-title').value,
-      department: document.getElementById('af-dept').value,
-      email:    document.getElementById('af-email').value,
-      phone:    document.getElementById('af-phone').value,
-      joinDate: document.getElementById('af-join').value || new Date().toISOString().split('T')[0],
-      status:   document.getElementById('af-status').value,
-      userId:   document.getElementById('af-user').value || null,
-    };
-    if (!data.name || !data.nik || !data.title) { Toast.error('Fill required fields.'); return; }
-    try {
-      if (id) { await DB.update('auditors', id, data); AuditLog.logUpdate('master', id, { type: 'auditor', name: data.name }); Toast.success('Auditor updated.'); }
-      else     { await DB.insert('auditors', data);    AuditLog.logCreate('master', null, { type: 'auditor', name: data.name }); Toast.success('Auditor added.'); }
-      Modal.close();
-      AuditorsPage.refresh();
-    } catch (e) {
-      Toast.error('Gagal menyimpan auditor: ' + e.message);
-    }
-  },
-
-  async deleteAuditor(id) {
-    const refs = DB.get('audit_plannings').filter(p => p.leadAuditor === id || (p.auditorTeam || []).includes(id)).length;
-    if (refs > 0) {
-      Toast.error(`Tidak dapat menghapus auditor: masih menjadi Lead/Team Auditor di ${refs} perencanaan audit. Hapus atau ubah referensi terlebih dahulu.`);
-      return;
-    }
-    Modal.confirm('Delete Auditor', 'Are you sure you want to delete this auditor record?', async () => {
-      try {
-        await DB.delete('auditors', id);
-        AuditLog.logDelete('master', id, { type: 'auditor', name: a.name });
-        Toast.success('Auditor deleted.');
-        AuditorsPage.refresh();
-      } catch (e) {
-        Toast.error('Gagal menghapus auditor: ' + e.message);
-      }
-    });
-  }
 };
 
 window.AuditorsPage = AuditorsPage;
