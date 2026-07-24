@@ -15,6 +15,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.error('[App] Failed to load data:', err);
   }
 
+  // Load permissions from server if logged in
+  if (Auth.isLoggedIn()) {
+    try {
+      await Perms._load();
+    } catch (err) {
+      console.warn('[App] Failed to load permissions from server:', err);
+    }
+  }
+
   // Seed/migration (compatibility shim)
   if (typeof window.seedDatabase === 'function') {
     window.seedDatabase();

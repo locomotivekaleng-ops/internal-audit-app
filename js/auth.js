@@ -78,7 +78,9 @@ const Auth = {
     sessionStorage.removeItem(Auth.TOKEN_KEY);
     localStorage.removeItem(Auth.REFRESH_TOKEN_KEY);
     sessionStorage.removeItem(Auth.SESSION_KEY);
-    localStorage.removeItem(Perms.STORAGE_KEY);
+    localStorage.removeItem('ia_audit_permissions_overrides');
+    Perms._cache = null;
+    Perms._loaded = false;
     DB.clearCache();
   },
 

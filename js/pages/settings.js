@@ -203,11 +203,19 @@ const SettingsPage = {
     return matrix;
   },
 
-  _save() {
+  async _save() {
     const matrix = SettingsPage._collectMatrix();
-    Perms._cache = matrix;
-    Perms.save();
 
+    // Save to server
+    try {
+      await Perms.save(matrix);
+    } catch (err) {
+      console.error('[Settings] Failed to save to server:', err);
+      Toast?.error('Gagal menyimpan ke server. Coba lagi.');
+      return;
+    }
+
+    // Save overrides to localStorage (kept client-side for simplicity)
     document.querySelectorAll('[data-action="override-toggle"]').forEach(cb => {
       const role = cb.dataset.role;
       const permKey = cb.dataset.perm;
@@ -220,8 +228,14 @@ const SettingsPage = {
     SettingsPage.render();
   },
 
-  _reset() {
-    Perms.reset();
+  async _reset() {
+    try {
+      await Perms.reset();
+    } catch (err) {
+      console.error('[Settings] Failed to reset on server:', err);
+      Toast?.error('Gagal reset di server. Coba lagi.');
+      return;
+    }
     localStorage.removeItem('ia_audit_permissions_overrides');
     Toast?.success('Pengaturan akses dikembalikan ke default.');
     SettingsPage.render();

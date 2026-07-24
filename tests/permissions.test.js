@@ -4,6 +4,10 @@ globalThis.Auth = {
   getSession: vi.fn(),
 };
 
+globalThis.Supabase = {
+  _fetch: vi.fn(),
+};
+
 globalThis.localStorage = {
   _data: {},
   getItem(key) { return this._data[key] || null; },
@@ -20,9 +24,14 @@ describe('Perms', () => {
   beforeEach(() => {
     localStorage.clear();
     Auth.getSession.mockReset();
+    Supabase._fetch.mockReset();
+    Perms._cache = null;
+    Perms._loaded = false;
   });
 
-  it('should load defaults on first access', () => {
+  it('should load defaults when server unavailable', async () => {
+    Supabase._fetch.mockRejectedValue(new Error('Network error'));
+    await Perms._load();
     const matrix = Perms.getMatrix();
     expect(matrix.superadmin).toBeDefined();
     expect(matrix.head).toBeDefined();
@@ -77,8 +86,8 @@ describe('Perms', () => {
   it('canWrite should return true only for full access', () => {
     Auth.getSession.mockReturnValue({ role: 'auditor' });
     expect(Perms.canWrite('dashboard')).toBe(true);
-    expect(Perms.canWrite('auditors')).toBe(false); // read only
-    expect(Perms.canWrite('master')).toBe(false); // none
+    expect(Perms.canWrite('auditors')).toBe(false);
+    expect(Perms.canWrite('master')).toBe(false);
   });
 
   it('getEffectiveAccess should return none for unknown role', () => {
@@ -101,16 +110,30 @@ describe('Perms', () => {
     expect(Perms.can('cases:planning:write')).toBe(false);
   });
 
-  it('save should persist to localStorage', () => {
-    Perms.getMatrix().superadmin.dashboard = 'read';
-    Perms.save();
-    const raw = localStorage.getItem(Perms.STORAGE_KEY);
-    expect(raw).toContain('superadmin');
+  it('save should call server RPC', async () => {
+    Supabase._fetch.mockResolvedValue(true);
+    const matrix = {
+      superadmin: { dashboard: 'full', users: 'full' },
+      head: { dashboard: 'full', users: 'full' },
+      auditor: { dashboard: 'read', users: 'none' },
+      division: { dashboard: 'none', users: 'none' },
+    };
+    await Perms.save(matrix);
+    expect(Supabase._fetch).toHaveBeenCalledWith('POST', 'rpc/upsert_permissions_bulk', {
+      body: expect.arrayContaining([
+        expect.objectContaining({ role: 'superadmin', page_id: 'dashboard', permission: 'full' }),
+      ]),
+    });
+    expect(Perms._cache).toEqual(matrix);
   });
 
-  it('reset should restore defaults', () => {
-    Perms.getMatrix().superadmin.dashboard = 'none';
-    Perms.reset();
-    expect(Perms.getMatrix().superadmin.dashboard).toBe('full');
+  it('reset should call server RPC with defaults', async () => {
+    Supabase._fetch.mockResolvedValue(true);
+    await Perms.reset();
+    expect(Supabase._fetch).toHaveBeenCalledWith('POST', 'rpc/upsert_permissions_bulk', {
+      body: expect.arrayContaining([
+        expect.objectContaining({ role: 'superadmin', page_id: 'dashboard', permission: 'full' }),
+      ]),
+    });
   });
 });
