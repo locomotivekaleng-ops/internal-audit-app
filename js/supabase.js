@@ -73,6 +73,12 @@ const Supabase = {
         if (opts.prefer) headers['Prefer'] = opts.prefer;
         opts._retried = true;
         res = await doFetch();
+      } else {
+        sessionStorage.removeItem('supabase_token');
+        localStorage.removeItem('supabase_refresh_token');
+        sessionStorage.removeItem('ia_session');
+        if (window.Router) window.Router.navigate('login');
+        throw new Error('Sesi berakhir. Silakan login kembali.');
       }
     }
 

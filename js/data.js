@@ -423,6 +423,21 @@ const DB = {
         audit_results: ['status'],
         audit_actions: ['status', 'notes'],
       };
+      // Known columns per table — strip unknown fields to avoid PGRST204 errors
+      const KNOWN_COLUMNS = {
+        wbs_cases: ['id','caseNo','reportDate','category','brand','outletCode','province','status','severity','estimatedFraud','description','initialIndication','assignedTo','resolvedDate','linkedPlanningId','notes','picDepartment','outletManager','multiUnitManager','areaManager','distrikManager'],
+        fds_cases: ['id','caseNo','detectionDate','category','brand','outletCode','province','status','estimatedFraud','description','assignedTo','linkedPlanningId','notes','picDepartment','outletManager','multiUnitManager','areaManager','distrikManager'],
+        audit_plannings: ['id','reportNo','planningDate','auditDateFrom','auditDateTo','trigger','triggerRef','outletCode','brand','province','department','auditType','leadAuditor','auditorTeam','scope','status','reportSentDate','picDepartment','outletManager','multiUnitManager','areaManager','distrikManager'],
+        audit_results: ['id','planningId','findingNo','findingTitle','findingDate','category','description','rootCause','recommendation','totalLoss','totalRecovery','status'],
+        audit_actions: ['id','resultId','actionNo','actionTitle','picName','dueDate','status','notes','recovery'],
+        auditors: ['id','name','nik','title','department','status','joinDate','phone','email','userId'],
+      };
+      const known = KNOWN_COLUMNS[table];
+      if (known) {
+        for (const key of Object.keys(dbRecord)) {
+          if (!known.includes(key)) delete dbRecord[key];
+        }
+      }
       const safe = DEFAULTS[table] || [];
       for (const key of Object.keys(dbRecord)) {
         if (dbRecord[key] === '' && safe.includes(key)) {
