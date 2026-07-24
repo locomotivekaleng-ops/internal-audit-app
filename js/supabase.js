@@ -39,7 +39,7 @@ const Supabase = {
       'apikey': SUPABASE_ANON_KEY,
       'Content-Type': 'application/json',
     };
-    const token = localStorage.getItem('supabase_token');
+    const token = sessionStorage.getItem('supabase_token');
     if (token) h['Authorization'] = 'Bearer ' + token;
     return h;
   },
@@ -96,7 +96,7 @@ const Supabase = {
       });
       if (!res.ok) return false;
       const data = await res.json();
-      localStorage.setItem('supabase_token', data.access_token);
+      sessionStorage.setItem('supabase_token', data.access_token);
       if (data.refresh_token) localStorage.setItem('supabase_refresh_token', data.refresh_token);
       return true;
     } catch { return false; }
@@ -124,7 +124,7 @@ const Supabase = {
   },
 
   async authLogout() {
-    const token = localStorage.getItem('supabase_token');
+    const token = sessionStorage.getItem('supabase_token');
     if (!token) return;
     await fetch(SUPABASE_URL + '/auth/v1/logout', {
       method: 'POST',
@@ -136,7 +136,7 @@ const Supabase = {
   },
 
   async authGetUser() {
-    const token = localStorage.getItem('supabase_token');
+    const token = sessionStorage.getItem('supabase_token');
     if (!token) return null;
     const res = await fetch(SUPABASE_URL + '/auth/v1/user', {
       headers: {

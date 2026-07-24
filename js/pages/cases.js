@@ -1099,7 +1099,7 @@ const CasesPage = {
         <div class="form-grid form-grid-3">
           <div class="form-group">
             <label class="form-label required">No. Temuan</label>
-            <input type="text" class="form-control" id="rf-findingno" value="${Utils.escapeHtml(r?.findingNo || CasesPage._genFindingNo(planningId))}" />
+            <input type="text" class="form-control" id="rf-findingno" value="${Utils.escapeHtml(r?.findingNo || CasesPage._genFindingNo(planningId))}" maxlength="50" />
           </div>
           <div class="form-group">
             <label class="form-label required">Tanggal Temuan</label>
@@ -1113,7 +1113,7 @@ const CasesPage = {
           </div>
           <div class="form-group" style="grid-column:1/-1">
             <label class="form-label required">Judul Temuan</label>
-            <input type="text" class="form-control" id="rf-title" value="${Utils.escapeHtml(r?.findingTitle || '')}" placeholder="Nama/judul temuan audit" />
+            <input type="text" class="form-control" id="rf-title" value="${Utils.escapeHtml(r?.findingTitle || '')}" placeholder="Nama/judul temuan audit" maxlength="200" />
           </div>
           <div class="form-group">
             <label class="form-label required">Severity</label>

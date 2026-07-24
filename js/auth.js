@@ -19,8 +19,8 @@ const Auth = {
     // Fetch profile from REST
     let profile = null;
     try {
-      const baseUrl = globalThis.SUPABASE_URL;
-      const anonKey = globalThis.SUPABASE_ANON_KEY;
+      const baseUrl = window.SUPABASE_URL;
+      const anonKey = window.SUPABASE_ANON_KEY;
       const res = await fetch(
         baseUrl + '/rest/v1/profiles?id=eq.' + encodeURIComponent(authUser.id) + '&select=*',
         {

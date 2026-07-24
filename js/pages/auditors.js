@@ -233,11 +233,11 @@ const AuditorsPage = {
         <div class="form-grid form-grid-2">
           <div class="form-group">
             <label class="form-label required">Full Name</label>
-            <input type="text" class="form-control" id="af-name" value="${Utils.escapeHtml(a?.name||'')}" />
+            <input type="text" class="form-control" id="af-name" value="${Utils.escapeHtml(a?.name||'')}" maxlength="100" />
           </div>
           <div class="form-group">
             <label class="form-label required">NIK (Employee ID)</label>
-            <input type="text" class="form-control" id="af-nik" value="${Utils.escapeHtml(a?.nik||'')}" />
+            <input type="text" class="form-control" id="af-nik" value="${Utils.escapeHtml(a?.nik||'')}" maxlength="20" />
           </div>
           <div class="form-group">
             <label class="form-label required">Title / Position</label>
@@ -251,7 +251,7 @@ const AuditorsPage = {
           </div>
           <div class="form-group">
             <label class="form-label">Email</label>
-            <input type="email" class="form-control" id="af-email" value="${Utils.escapeHtml(a?.email||'')}" />
+            <input type="email" class="form-control" id="af-email" value="${Utils.escapeHtml(a?.email||'')}" maxlength="100" />
           </div>
           <div class="form-group">
             <label class="form-label">Phone</label>

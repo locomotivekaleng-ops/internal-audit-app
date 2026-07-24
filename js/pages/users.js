@@ -169,15 +169,15 @@ const UsersPage = {
         <div class="form-grid form-grid-2">
           <div class="form-group">
             <label class="form-label required">Full Name</label>
-            <input type="text" class="form-control" id="uf-name" value="${Utils.escapeHtml(u?.name||'')}" />
+            <input type="text" class="form-control" id="uf-name" value="${Utils.escapeHtml(u?.name||'')}" maxlength="100" />
           </div>
           <div class="form-group">
             <label class="form-label required">Username</label>
-            <input type="text" class="form-control" id="uf-username" value="${Utils.escapeHtml(u?.username||'')}" ${isEdit?'readonly':''} />
+            <input type="text" class="form-control" id="uf-username" value="${Utils.escapeHtml(u?.username||'')}" ${isEdit?'readonly':''} maxlength="50" />
           </div>
           <div class="form-group">
             <label class="form-label">Email</label>
-            <input type="email" class="form-control" id="uf-email" value="${Utils.escapeHtml(u?.email||'')}" />
+            <input type="email" class="form-control" id="uf-email" value="${Utils.escapeHtml(u?.email||'')}" maxlength="100" />
           </div>
           ${!isEdit ? `<div class="form-group">
             <label class="form-label required">Password</label>
