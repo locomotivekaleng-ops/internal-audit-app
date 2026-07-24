@@ -13,7 +13,7 @@ const Auth = {
     const authUser = data.user;
     const token = data.access_token;
 
-    localStorage.setItem(Auth.TOKEN_KEY, token);
+    sessionStorage.setItem(Auth.TOKEN_KEY, token);
     if (data.refresh_token) localStorage.setItem(Auth.REFRESH_TOKEN_KEY, data.refresh_token);
 
     // Fetch profile from REST
@@ -75,7 +75,7 @@ const Auth = {
 
   async logout() {
     await Supabase.authLogout();
-    localStorage.removeItem(Auth.TOKEN_KEY);
+    sessionStorage.removeItem(Auth.TOKEN_KEY);
     localStorage.removeItem(Auth.REFRESH_TOKEN_KEY);
     sessionStorage.removeItem(Auth.SESSION_KEY);
     localStorage.removeItem(Perms.STORAGE_KEY);

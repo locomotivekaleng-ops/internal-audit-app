@@ -42,7 +42,7 @@ const Components = {
               <p>Monitoring System</p>
             </div>
           </div>
-          <nav class="sidebar-nav">${navHtml}</nav>
+          <nav class="sidebar-nav" aria-label="Main navigation">${navHtml}</nav>
           <div class="sidebar-footer">
             <div class="user-profile">
               <div class="user-avatar">${initials}</div>
@@ -80,7 +80,7 @@ const Components = {
             </div>
           </header>
 
-          <main class="page-content fade-in" id="page-content">
+          <main class="page-content fade-in" id="page-content" role="main" aria-label="Page content">
             ${content}
           </main>
         </div>

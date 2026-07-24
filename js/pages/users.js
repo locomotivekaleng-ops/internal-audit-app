@@ -302,6 +302,7 @@ const UsersPage = {
         const profileEmail = email || username + '@internal-audit.app';
         await Supabase.update('profiles', id, { name, email: profileEmail, role, department: dept, status });
         DB.updateLocal('profiles', id, { name, email: profileEmail, role, department: dept, status });
+        AuditLog.logUpdate('user', id, { name, username, role });
         Toast.success('User account updated.');
       } else {
         const password = document.getElementById('uf-password')?.value;
@@ -315,6 +316,7 @@ const UsersPage = {
         });
         const freshProfiles = await Supabase.getAll('profiles');
         DB.set('profiles', freshProfiles);
+        AuditLog.logCreate('user', newId, { name, username, role });
         Toast.success('User account created.');
       }
       Modal.close();
@@ -375,6 +377,7 @@ const UsersPage = {
     Modal.confirm('Delete User', 'Delete this user account? This cannot be undone.', async () => {
       try {
         await Supabase.adminDeleteUser(id);
+        AuditLog.logDelete('user', id, { username: user.username, name: user.name });
         Toast.success('User deleted.');
         await UsersPage.refresh();
       } catch (e) {

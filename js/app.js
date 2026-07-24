@@ -37,4 +37,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
   });
+
+  // Session timeout — auto-logout after 15 minutes of inactivity
+  let idleTimer;
+  const IDLE_TIMEOUT = 15 * 60 * 1000;
+  const resetIdleTimer = () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      if (Auth.isLoggedIn()) {
+        Toast.show('Sesi berakhir karena tidak aktif selama 15 menit', 'warning');
+        Auth.logout();
+        Router.navigate('login');
+      }
+    }, IDLE_TIMEOUT);
+  };
+  ['mousemove', 'keypress', 'click', 'scroll', 'touchstart'].forEach(evt => {
+    document.addEventListener(evt, resetIdleTimer, { passive: true });
+  });
+  resetIdleTimer();
 });

@@ -48,6 +48,11 @@ const SettingsPage = {
 
   render() {
     if (!Auth.requireAuth()) return;
+    if (!Auth.isSuperAdmin()) {
+      Toast.show('Anda tidak memiliki akses ke halaman ini', 'error');
+      Router.navigate('dashboard');
+      return;
+    }
     Components.renderAppShell(
       'Role Settings',
       'Konfigurasi akses setiap role terhadap halaman aplikasi',

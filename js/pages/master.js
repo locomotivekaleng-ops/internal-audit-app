@@ -282,10 +282,12 @@ const MasterPage = {
     try {
       if (id) {
         await DB.update('brands', id, data);
+        AuditLog.logUpdate('master', id, { type: 'brand', name: data.name });
         Toast.success('Brand updated.');
       } else {
         if (DB.get('brands').find(b => (b.id === data.id || b.code === data.id))) { Toast.error('Brand ID already exists.'); return; }
         await DB.insert('brands', data);
+        AuditLog.logCreate('master', data.id, { type: 'brand', name: data.name });
         Toast.success('Brand added.');
       }
       Modal.close();
@@ -309,6 +311,7 @@ const MasterPage = {
     Modal.confirm('Delete Brand', 'Delete this brand?', async () => {
       try {
         await DB.delete('brands', id);
+        AuditLog.logDelete('master', id, { type: 'brand' });
         Toast.success('Brand deleted.');
         MasterPage.refreshTab();
       } catch (e) {
@@ -426,9 +429,11 @@ const MasterPage = {
     try {
       if (id) {
         await DB.update('fraud_categories', id, data);
+        AuditLog.logUpdate('master', id, { type: 'category', name: data.name });
         Toast.success('Category updated.');
       } else {
         await DB.insert('fraud_categories', data);
+        AuditLog.logCreate('master', null, { type: 'category', name: data.name });
         Toast.success('Category added.');
       }
       Modal.close();
@@ -448,6 +453,7 @@ const MasterPage = {
     Modal.confirm('Delete Category', 'Delete this fraud category?', async () => {
       try {
         await DB.delete('fraud_categories', id);
+        AuditLog.logDelete('master', id, { type: 'category' });
         Toast.success('Category deleted.');
         MasterPage.refreshTab();
       } catch (e) {
@@ -600,11 +606,13 @@ const MasterPage = {
     try {
       if (id) {
         await DB.update('outlets', id, data);
+        AuditLog.logUpdate('master', id, { type: 'outlet', code: data.code, name: data.name });
         Toast.success('Outlet updated.');
       } else {
         const newOutlet = { ...data, id: data.code };
         if (DB.get('outlets').find(o => o.id === data.code)) { Toast.error('Outlet code already exists.'); return; }
         await DB.insert('outlets', newOutlet);
+        AuditLog.logCreate('master', data.code, { type: 'outlet', code: data.code, name: data.name });
         Toast.success('Outlet added.');
       }
       Modal.close();
@@ -627,6 +635,7 @@ const MasterPage = {
     Modal.confirm('Delete Outlet', 'Delete this outlet?', async () => {
       try {
         await DB.delete('outlets', id);
+        AuditLog.logDelete('master', id, { type: 'outlet', code: outlet.code });
         Toast.success('Outlet deleted.');
         MasterPage.refreshTab();
       } catch (e) {
@@ -705,8 +714,8 @@ const MasterPage = {
     const name = document.getElementById('pv-name').value.trim();
     if (!name) { Toast.error('Province name is required.'); return; }
     try {
-      if (id) { await DB.update('provinces', id, { name }); Toast.success('Province updated.'); }
-      else    { await DB.insert('provinces', { name }); Toast.success('Province added.'); }
+      if (id) { await DB.update('provinces', id, { name }); AuditLog.logUpdate('master', id, { type: 'province', name }); Toast.success('Province updated.'); }
+      else    { await DB.insert('provinces', { name }); AuditLog.logCreate('master', null, { type: 'province', name }); Toast.success('Province added.'); }
       Modal.close();
       MasterPage.refreshTab();
     } catch (e) {
@@ -724,6 +733,7 @@ const MasterPage = {
     Modal.confirm('Delete Province', 'Delete this province?', async () => {
       try {
         await DB.delete('provinces', id);
+        AuditLog.logDelete('master', id, { type: 'province' });
         Toast.success('Province deleted.');
         MasterPage.refreshTab();
       } catch (e) {
@@ -815,9 +825,11 @@ const MasterPage = {
     try {
       if (id) {
         await DB.update('departments', id, data);
+        AuditLog.logUpdate('master', id, { type: 'department', name: data.name, code: data.code });
         Toast.success('Department updated.');
       } else {
         await DB.insert('departments', data);
+        AuditLog.logCreate('master', null, { type: 'department', name: data.name, code: data.code });
         Toast.success('Department added.');
       }
       Modal.close();
@@ -837,6 +849,7 @@ const MasterPage = {
     Modal.confirm('Delete Department', 'Delete this department?', async () => {
       try {
         await DB.delete('departments', id);
+        AuditLog.logDelete('master', id, { type: 'department' });
         Toast.success('Department deleted.');
         MasterPage.refreshTab();
       } catch (e) {

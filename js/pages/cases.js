@@ -21,24 +21,6 @@ const CasesPage = {
   // ============================================================
   // HELPERS — dynamic calculations
   // ============================================================
-  _recoveryForResult(resultId) {
-    return DB.get('audit_actions')
-      .filter(a => a.resultId === resultId && a.status === 'Closed')
-      .reduce((s, a) => s + (a.recovery || 0), 0);
-  },
-
-  _recoveryForPlanning(planningId) {
-    return DB.get('audit_actions')
-      .filter(a => a.planningId === planningId && a.status === 'Closed')
-      .reduce((s, a) => s + (a.recovery || 0), 0);
-  },
-
-  _lossForPlanning(planningId) {
-    return DB.get('audit_results')
-      .filter(r => r.planningId === planningId)
-      .reduce((s, r) => s + (r.totalLoss || 0), 0);
-  },
-
   _actionPlanStatus(planningId) {
     return AuditMetrics.getActionPlanStatus(planningId);
   },
@@ -724,6 +706,7 @@ const CasesPage = {
     }
     try {
       await DB.update('audit_plannings', planningId, { status: 'Completed', reportSentDate: sentDate });
+      AuditLog.logUpdate('planning', planningId, { status: 'Completed', reportSentDate: sentDate });
 
       // Auto-sync case status to Closed
       const p = DB.find('audit_plannings', planningId);
@@ -1036,10 +1019,12 @@ const CasesPage = {
     try {
       if (id) {
         await DB.update('audit_plannings', id, record);
+        AuditLog.logUpdate('planning', id, { outlet: outletCode, reportNo: finalReportNo });
         AuditMetrics.syncPlanningRelationships(id, oldTrigger, oldTriggerRef, trigger, triggerRef);
         Toast.success('Planning berhasil diperbarui.', 'Tersimpan');
       } else {
         const inserted = await DB.insert('audit_plannings', record);
+        AuditLog.logCreate('planning', inserted.id, { outlet: outletCode, reportNo: finalReportNo });
         AuditMetrics.syncPlanningRelationships(inserted.id, null, null, trigger, triggerRef);
         Toast.success('Audit Planning berhasil dibuat!', 'Berhasil');
       }
@@ -1070,6 +1055,7 @@ const CasesPage = {
       DB.set('audit_actions', DB.get('audit_actions').filter(a => !results.some(r => r.id === a.resultId)));
       DB.set('audit_results', DB.get('audit_results').filter(r => r.planningId !== id));
       await DB.delete('audit_plannings', id);
+      AuditLog.logDelete('planning', id, { reportNo: planning?.reportNo });
       Toast.info('Planning berhasil dihapus.', 'Dihapus');
       CasesPage.refresh();
     } catch (e) {
@@ -1233,6 +1219,7 @@ const CasesPage = {
     try {
       if (resultId) {
         await DB.update('audit_results', resultId, record);
+        AuditLog.logUpdate('result', resultId, { findingNo, planningId });
         Toast.success('Temuan berhasil diperbarui.', 'Tersimpan');
       } else {
         const existing = DB.get('audit_results').find(r =>
@@ -1241,7 +1228,8 @@ const CasesPage = {
         if (existing) {
           DB.set('audit_results', DB.get('audit_results').filter(r => r.id !== existing.id));
         }
-        await DB.insert('audit_results', record);
+        const inserted = await DB.insert('audit_results', record);
+        AuditLog.logCreate('result', inserted.id, { findingNo, planningId });
         Toast.success('Temuan audit berhasil ditambahkan!', 'Berhasil');
       }
       CasesPage._autoUpdateLaporanStatus(planningId);
@@ -1254,6 +1242,7 @@ const CasesPage = {
   async deleteResult(resultId, planningId) {
     if (!confirm('Hapus temuan ini? Semua tindakan perbaikan terkait juga akan dihapus.')) return;
     try {
+      const findingNo = DB.find('audit_results', resultId)?.findingNo;
       // Remove child actions from cache + best-effort server cleanup
       const actions = DB.get('audit_actions').filter(a => a.resultId === resultId);
       for (const a of actions) {
@@ -1261,6 +1250,7 @@ const CasesPage = {
       }
       DB.set('audit_actions', DB.get('audit_actions').filter(a => a.resultId !== resultId));
       await DB.delete('audit_results', resultId);
+      AuditLog.logDelete('result', resultId, { findingNo, planningId });
       Toast.info('Temuan berhasil dihapus.', 'Dihapus');
       CasesPage._autoUpdateLaporanStatus(planningId);
       CasesPage.viewPlanning(planningId, 'results');
@@ -1432,9 +1422,11 @@ const CasesPage = {
     try {
       if (actionId) {
         await DB.update('audit_actions', actionId, record);
+        AuditLog.logUpdate('action', actionId, { actionNo, planningId });
         Toast.success('Tindakan berhasil diperbarui.', 'Tersimpan');
       } else {
         await DB.insert('audit_actions', record);
+        AuditLog.logCreate('action', null, { actionNo, planningId, resultId });
         Toast.success('Agreed Action berhasil ditambahkan!', 'Berhasil');
       }
       CasesPage.viewPlanning(planningId, 'results');
@@ -1447,6 +1439,7 @@ const CasesPage = {
     if (!confirm('Hapus tindakan perbaikan ini?')) return;
     try {
       await DB.delete('audit_actions', actionId);
+      AuditLog.logDelete('action', actionId, { planningId });
       Toast.info('Tindakan berhasil dihapus.', 'Dihapus');
       CasesPage.viewPlanning(planningId, 'results');
     } catch (e) {
@@ -1506,6 +1499,7 @@ const CasesPage = {
     a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
     a.download = `audit-assignments-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+    AuditLog.logExport('planning', { count: plannings.length });
   },
 };
 

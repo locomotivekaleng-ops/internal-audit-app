@@ -6,6 +6,9 @@
   <title>Internal Audit — Monitoring System</title>
   <meta name="description" content="Internal Audit Monitoring System — Track fraud, WBS, FDS, and audit activities across all departments." />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; base-uri 'self'; form-action 'self';">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -23,12 +26,13 @@
   <link rel="stylesheet" href="css/components.css" />
 </head>
 <body>
+  <a href="#page-content" class="skip-link">Skip to content</a>
   <div id="app-root">
     <!-- Dynamically rendered by app.js -->
   </div>
 
   <!-- Toast container -->
-  <div id="toast-container" class="toast-container"></div>
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
   <!-- Loading overlay -->
   <div id="loading-overlay" class="loading-overlay hidden" role="status" aria-live="polite">
@@ -52,6 +56,7 @@
   <script src="js/utils.js"></script>
   <script src="js/i18n.js"></script>
   <script src="js/audit-metrics.js"></script>
+  <script src="js/audit-log.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/components.js"></script>
   <script src="js/router.js"></script>

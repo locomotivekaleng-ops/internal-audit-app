@@ -17,6 +17,14 @@ const ReportsPage = {
   _columnState: {},
   _numericCols: new Set(['totalLoss','target','recovery','unrecovered','outstanding','count','daysOverdue','daysToClose','jmlPlanning','jmlTemuan','jmlOutlet','fraud','admin','age']),
 
+  // ─── Shared metrics helper ───
+  _calcMetrics(results, actions) {
+    const totalLoss = results.reduce((s, r) => s + (Number(r.totalLoss) || 0), 0);
+    const totalRecovery = actions.filter(a => a.status === 'Closed').reduce((s, a) => s + (Number(a.recovery) || 0), 0);
+    const outstanding = Math.max(0, totalLoss - totalRecovery);
+    return { totalLoss, totalRecovery, outstanding };
+  },
+
   // ─── Category definitions ───
   categories: [
     { id: 'audit',    icon: 'search-check',  label: 'Audit Reports' },
@@ -421,13 +429,12 @@ const ReportsPage = {
       ],
       getKPIs(d) {
         const outlets = [...new Map(d.plannings.map(p=>[p.outletCode,p])).values()];
-        const totalLoss = d.results.reduce((s,r)=>s+(r.totalLoss||0),0);
-        const totalRec = d.actions.filter(a=>a.status==='Closed').reduce((s,a)=>s+(a.recovery||0),0);
+        const m = ReportsPage._calcMetrics(d.results, d.actions);
         return [
           { label:'Outlet', value:outlets.length, color:'blue' },
           { label:'Total Planning', value:d.plannings.length, color:'cyan' },
-          { label:'Total Loss', value:Utils.formatIDR(totalLoss), color:'red' },
-          { label:'Recovery', value:Utils.formatIDR(totalRec), color:'green' },
+          { label:'Total Loss', value:Utils.formatIDR(m.totalLoss), color:'red' },
+          { label:'Recovery', value:Utils.formatIDR(m.totalRecovery), color:'green' },
         ];
       },
       fetchRows(d, self) {
@@ -437,19 +444,18 @@ const ReportsPage = {
           const outletPlans = d.plannings.filter(p=>p.outletCode===o.outletCode);
           const outletPlanIds = outletPlans.map(p=>p.id);
           const outletResults = d.results.filter(r=>outletPlanIds.includes(r.planningId));
-          const totalLoss = outletResults.reduce((s,r)=>s+(r.totalLoss||0),0);
           const fraud = outletResults.filter(r=>r.nature==='Fraud').length;
           const admin = outletResults.filter(r=>r.nature==='Administrative').length;
           const oResultIds = outletResults.map(r=>r.id);
           const oActions = DB.get('audit_actions').filter(a=>oResultIds.includes(a.resultId));
-          const recovery = oActions.filter(a=>a.status==='Closed').reduce((s,a)=>s+(a.recovery||0),0);
+          const m = ReportsPage._calcMetrics(outletResults, oActions);
           return {
             no: i+1, outlet: (o.outletCode||'')+' '+(Utils.getOutletName(o.outletCode)||''),
             brand: Utils.getBrandName(o.brand)||'', province: Utils.getProvName(o.province)||'',
             jmlPlanning: outletPlans.length, jmlTemuan: outletResults.length,
             fraud, admin,
-            totalLoss: Number(totalLoss).toLocaleString('en-US'),
-            recovery: Number(recovery).toLocaleString('en-US'),
+            totalLoss: Number(m.totalLoss).toLocaleString('en-US'),
+            recovery: Number(m.totalRecovery).toLocaleString('en-US'),
             outstanding: Number(Math.max(0,totalLoss-recovery)).toLocaleString('en-US'),
           };
         });
@@ -470,13 +476,12 @@ const ReportsPage = {
       ],
       getKPIs(d) {
         const brands = new Set(d.plannings.map(p=>p.brand));
-        const totalLoss = d.results.reduce((s,r)=>s+(r.totalLoss||0),0);
-        const totalRec = d.actions.filter(a=>a.status==='Closed').reduce((s,a)=>s+(a.recovery||0),0);
+        const m = ReportsPage._calcMetrics(d.results, d.actions);
         return [
           { label:'Brand', value:brands.size, color:'blue' },
           { label:'Total Planning', value:d.plannings.length, color:'cyan' },
-          { label:'Total Loss', value:Utils.formatIDR(totalLoss), color:'red' },
-          { label:'Recovery', value:Utils.formatIDR(totalRec), color:'green' },
+          { label:'Total Loss', value:Utils.formatIDR(m.totalLoss), color:'red' },
+          { label:'Recovery', value:Utils.formatIDR(m.totalRecovery), color:'green' },
         ];
       },
       fetchRows(d, self) {
@@ -486,16 +491,15 @@ const ReportsPage = {
           const brandPlanIds = brandPlans.map(p=>p.id);
           const brandResults = d.results.filter(r=>brandPlanIds.includes(r.planningId));
           const uniqueOutlets = new Set(brandPlans.map(p=>p.outletCode));
-          const totalLoss = brandResults.reduce((s,r)=>s+(r.totalLoss||0),0);
           const bResultIds = brandResults.map(r=>r.id);
           const bActions = DB.get('audit_actions').filter(a=>bResultIds.includes(a.resultId));
-          const recovery = bActions.filter(a=>a.status==='Closed').reduce((s,a)=>s+(a.recovery||0),0);
+          const m = ReportsPage._calcMetrics(brandResults, bActions);
           return {
             no: i+1, brand: b, jmlOutlet: uniqueOutlets.size,
             jmlPlanning: brandPlans.length, jmlTemuan: brandResults.length,
-            totalLoss: Number(totalLoss).toLocaleString('en-US'),
-            recovery: Number(recovery).toLocaleString('en-US'),
-            outstanding: Number(Math.max(0,totalLoss-recovery)).toLocaleString('en-US'),
+            totalLoss: Number(m.totalLoss).toLocaleString('en-US'),
+            recovery: Number(m.totalRecovery).toLocaleString('en-US'),
+            outstanding: Number(m.outstanding).toLocaleString('en-US'),
           };
         });
       },
@@ -514,13 +518,12 @@ const ReportsPage = {
         const totalPl = d.plannings.length;
         const completed = d.plannings.filter(p=>p.status==='Completed').length;
         const totalFindings = d.results.length;
-        const totalLoss = d.results.reduce((s,r)=>s+(r.totalLoss||0),0);
-        const totalRec = d.actions.filter(a=>a.status==='Closed').reduce((s,a)=>s+(a.recovery||0),0);
+        const m = ReportsPage._calcMetrics(d.results, d.actions);
         return [
           { label:'Plannings', value:totalPl, color:'blue' },
           { label:'Completed', value:completed, color:'green' },
           { label:'Temuan', value:totalFindings, color:'amber' },
-          { label:'Loss', value:Utils.formatIDR(totalLoss), color:'red' },
+          { label:'Loss', value:Utils.formatIDR(m.totalLoss), color:'red' },
         ];
       },
       fetchRows(d) {
@@ -531,9 +534,7 @@ const ReportsPage = {
         const totalFindings = d.results.length;
         const fraud = d.results.filter(r=>r.nature==='Fraud').length;
         const admin = d.results.filter(r=>r.nature==='Administrative').length;
-        const totalLoss = d.results.reduce((s,r)=>s+(r.totalLoss||0),0);
-        const totalRec = d.actions.filter(a=>a.status==='Closed').reduce((s,a)=>s+(a.recovery||0),0);
-        const outstanding = Math.max(0,totalLoss-totalRec);
+        const m = ReportsPage._calcMetrics(d.results, d.actions);
         const openAAP = d.actions.filter(a=>a.status==='Open').length;
         return [
           { no:1, kpi:'Total Plannings', value:totalPl },
@@ -543,9 +544,9 @@ const ReportsPage = {
           { no:5, kpi:'Total Findings', value:totalFindings },
           { no:6, kpi:'Fraud Findings', value:fraud },
           { no:7, kpi:'Administrative Findings', value:admin },
-          { no:8, kpi:'Total Loss (Rp)', value:Number(totalLoss).toLocaleString('en-US') },
-          { no:9, kpi:'Total Recovery (Rp)', value:Number(totalRec).toLocaleString('en-US') },
-          { no:10, kpi:'Outstanding (Rp)', value:Number(outstanding).toLocaleString('en-US') },
+          { no:8, kpi:'Total Loss (Rp)', value:Number(m.totalLoss).toLocaleString('en-US') },
+          { no:9, kpi:'Total Recovery (Rp)', value:Number(m.totalRecovery).toLocaleString('en-US') },
+          { no:10, kpi:'Outstanding (Rp)', value:Number(m.outstanding).toLocaleString('en-US') },
           { no:11, kpi:'Open AAP', value:openAAP },
         ];
       },
@@ -658,7 +659,7 @@ const ReportsPage = {
         }
       });
     }
-    PageLifecycle.on('rp-search', 'input', (e) => this._setFilter('search', e.target.value));
+    PageLifecycle.on('rp-search', 'input', Utils.debounce((e) => this._setFilter('search', e.target.value), 300));
     PageLifecycle.on('rp-date-from', 'change', (e) => this._setFilter('dateFrom', e.target.value));
     PageLifecycle.on('rp-date-to', 'change', (e) => this._setFilter('dateTo', e.target.value));
   },
@@ -926,10 +927,10 @@ const ReportsPage = {
     if (f.auditor) plannings = plannings.filter(p => p.leadAuditor === f.auditor);
     if (f.trigger) plannings = plannings.filter(p => p.trigger === f.trigger);
 
-    const planningIds = plannings.map(p => p.id);
-    let results = (DB.get('audit_results') || []).filter(r => planningIds.includes(r.planningId));
-    const resultIds = results.map(r => r.id);
-    const actions = (DB.get('audit_actions') || []).filter(a => resultIds.includes(a.resultId));
+    const planningIds = new Set(plannings.map(p => p.id));
+    let results = (DB.get('audit_results') || []).filter(r => planningIds.has(r.planningId));
+    const resultIds = new Set(results.map(r => r.id));
+    const actions = (DB.get('audit_actions') || []).filter(a => resultIds.has(a.resultId));
     const fraudResults = results.filter(r => r.nature === 'Fraud');
     const fraudsterResults = fraudResults.filter(r => r.fraudsterName);
 
@@ -965,6 +966,14 @@ const ReportsPage = {
   _setFilter(key, value) {
     ReportsPage.filters[key] = value;
     ReportsPage._filteredCache = null;
+    if (key === 'search') {
+      const contentEl = document.getElementById('page-content');
+      if (contentEl) {
+        Utils.updateElementHtmlAndPreserveFocus('page-content', ReportsPage._buildReportView());
+        lucide.createIcons();
+        return;
+      }
+    }
     ReportsPage.render();
   },
 
@@ -1153,14 +1162,13 @@ const ReportsPage = {
       const outletPlans = data.plannings.filter(p=>p.outletCode===o.outletCode);
       const outletPlanIds = outletPlans.map(p=>p.id);
       const outletResults = data.results.filter(r=>outletPlanIds.includes(r.planningId));
-      const totalLoss = outletResults.reduce((s,r)=>s+(r.totalLoss||0),0);
       const fraud = outletResults.filter(r=>r.nature==='Fraud').length;
       const admin = outletResults.filter(r=>r.nature==='Administrative').length;
       const oResultIds = outletResults.map(r=>r.id);
       const oActions = DB.get('audit_actions').filter(a=>oResultIds.includes(a.resultId));
-      const recovery = oActions.filter(a=>a.status==='Closed').reduce((s,a)=>s+(a.recovery||0),0);
+      const m = ReportsPage._calcMetrics(outletResults, oActions);
       return [`${o.outletCode} ${Utils.getOutletName(o.outletCode)||''}`, Utils.getBrandName(o.brand)||'', Utils.getProvName(o.province)||'',
-        outletPlans.length, outletResults.length, fraud, admin, totalLoss, recovery, Math.max(0,totalLoss-recovery)];
+        outletPlans.length, outletResults.length, fraud, admin, m.totalLoss, m.totalRecovery, m.outstanding];
     });
     ReportsPage._downloadCSV('Rekap_per_Outlet', headers, rows);
   },
@@ -1174,11 +1182,10 @@ const ReportsPage = {
       const brandPlanIds = brandPlans.map(p=>p.id);
       const brandResults = data.results.filter(r=>brandPlanIds.includes(r.planningId));
       const uniqueOutlets = new Set(brandPlans.map(p=>p.outletCode));
-      const totalLoss = brandResults.reduce((s,r)=>s+(r.totalLoss||0),0);
       const bResultIds = brandResults.map(r=>r.id);
       const bActions = DB.get('audit_actions').filter(a=>bResultIds.includes(a.resultId));
-      const recovery = bActions.filter(a=>a.status==='Closed').reduce((s,a)=>s+(a.recovery||0),0);
-      return [b, uniqueOutlets.size, brandPlans.length, brandResults.length, totalLoss, recovery, Math.max(0,totalLoss-recovery)];
+      const m = ReportsPage._calcMetrics(brandResults, bActions);
+      return [b, uniqueOutlets.size, brandPlans.length, brandResults.length, m.totalLoss, m.totalRecovery, m.outstanding];
     });
     ReportsPage._downloadCSV('Rekap_per_Brand', headers, rows);
   },
@@ -1208,16 +1215,14 @@ const ReportsPage = {
     const totalFindings = data.results.length;
     const fraud = data.results.filter(r=>r.nature==='Fraud').length;
     const admin = data.results.filter(r=>r.nature==='Administrative').length;
-    const totalLoss = data.results.reduce((s,r)=>s+(r.totalLoss||0),0);
-    const totalRec = data.actions.filter(a=>a.status==='Closed').reduce((s,a)=>s+(a.recovery||0),0);
-    const outstanding = Math.max(0,totalLoss-totalRec);
+    const m = ReportsPage._calcMetrics(data.results, data.actions);
     const openAAP = data.actions.filter(a=>a.status==='Open').length;
     const headers = ['KPI','Nilai'];
     const rows = [
       ['Total Plannings', totalPl],['Completed Plannings', completed],['In Progress Plannings', ip],
       ['Achievement (%)', ach],['Total Findings', totalFindings],['Fraud Findings', fraud],
-      ['Administrative Findings', admin],['Total Loss (Rp)', totalLoss],['Total Recovery (Rp)', totalRec],
-      ['Outstanding (Rp)', outstanding],['Open AAP', openAAP],
+      ['Administrative Findings', admin],['Total Loss (Rp)', m.totalLoss],['Total Recovery (Rp)', m.totalRecovery],
+      ['Outstanding (Rp)', m.outstanding],['Open AAP', openAAP],
     ];
     ReportsPage._downloadCSV('Dashboard_KPIs', headers, rows);
   },

@@ -301,8 +301,8 @@ const AuditorsPage = {
     };
     if (!data.name || !data.nik || !data.title) { Toast.error('Fill required fields.'); return; }
     try {
-      if (id) { await DB.update('auditors', id, data); Toast.success('Auditor updated.'); }
-      else     { await DB.insert('auditors', data);    Toast.success('Auditor added.'); }
+      if (id) { await DB.update('auditors', id, data); AuditLog.logUpdate('master', id, { type: 'auditor', name: data.name }); Toast.success('Auditor updated.'); }
+      else     { await DB.insert('auditors', data);    AuditLog.logCreate('master', null, { type: 'auditor', name: data.name }); Toast.success('Auditor added.'); }
       Modal.close();
       AuditorsPage.refresh();
     } catch (e) {
@@ -319,6 +319,7 @@ const AuditorsPage = {
     Modal.confirm('Delete Auditor', 'Are you sure you want to delete this auditor record?', async () => {
       try {
         await DB.delete('auditors', id);
+        AuditLog.logDelete('master', id, { type: 'auditor', name: a.name });
         Toast.success('Auditor deleted.');
         AuditorsPage.refresh();
       } catch (e) {
